@@ -1,0 +1,66 @@
+[
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-hdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-mdpi_ic_launcher_foreground.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-mdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/drawable_rn_edit_text_material.xml.flat",
+        "source": "com.sharporder.app-main-63:/drawable/rn_edit_text_material.xml"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-mdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xxxhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-hdpi_ic_launcher_foreground.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-hdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xxxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xxhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.sharporder.app-debug-61:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "com.sharporder.app-main-63:/mipmap-xxhdpi/ic_launcher_round.png"
+    }
+]

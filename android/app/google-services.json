@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "488621836143",
+    "project_id": "sharp-order-7a3bd",
+    "storage_bucket": "sharp-order-7a3bd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:488621836143:android:950d3b71f446fdcb6a0a9a",
+        "android_client_info": {
+          "package_name": "com.sharporder"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBagLlpXLbclCkfI7HUbuO2IWwD-0ybv8g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
