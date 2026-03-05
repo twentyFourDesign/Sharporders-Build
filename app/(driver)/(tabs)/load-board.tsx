@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -27,7 +28,8 @@ type Load = {
 
 export default function DriverLoadBoardScreen() {
   const { token } = useAuth();
-  const [isLive, setIsLive] = useState(false);
+  const params = useLocalSearchParams<{ live?: string }>();
+  const [isLive, setIsLive] = useState(params.live === '1');
   const [loads, setLoads] = useState<Load[]>([]);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);

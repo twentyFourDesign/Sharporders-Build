@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -21,6 +22,8 @@ type Load = {
   loadDescription: string;
   fareOffer: number;
   status: string;
+  pickupMapsUrl?: string | null;
+  deliveryMapsUrl?: string | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -127,6 +130,20 @@ export default function ShipperLoadsScreen() {
                   {item.loadDescription}
                 </Text>
 
+                <Pressable
+                  style={styles.mapLink}
+                  onPress={() => {
+                    const url =
+                      item.deliveryMapsUrl ||
+                      item.pickupMapsUrl ||
+                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        item.deliveryAddress || item.pickupAddress,
+                      )}`;
+                    Linking.openURL(url);
+                  }}>
+                  <Text style={styles.mapLinkText}>Open in Google Maps</Text>
+                </Pressable>
+
                 {canViewBids && (
                   <Pressable
                     style={({ pressed }) => [styles.bidsButton, pressed && { opacity: 0.85 }]}
@@ -200,4 +217,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
+  mapLink: { marginTop: 2 },
+  mapLinkText: { fontSize: 12, color: '#007AFF', fontWeight: '500' },
 });

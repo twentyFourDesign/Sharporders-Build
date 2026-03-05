@@ -20,6 +20,12 @@ type Truck = {
   name: string;
 };
 
+type PlaceSuggestion = {
+  id: string;
+  label: string;
+  mapsUrl: string;
+};
+
 export default function CreateLoadScreen() {
   const { token } = useAuth();
   const [pickupAddress, setPickupAddress] = useState('');
@@ -32,6 +38,14 @@ export default function CreateLoadScreen() {
   const [saving, setSaving] = useState(false);
   const [trucks, setTrucks] = useState<Truck[]>([]);
   const scrollRef = useRef<ScrollView>(null);
+  const [pickupSuggestions, setPickupSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [pickupLoading, setPickupLoading] = useState(false);
+  const [pickupMapsUrl, setPickupMapsUrl] = useState<string | null>(null);
+  const [deliverySuggestions, setDeliverySuggestions] = useState<PlaceSuggestion[]>([]);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
+  const [deliveryMapsUrl, setDeliveryMapsUrl] = useState<string | null>(null);
+  const pickupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const deliveryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Scrolls so the tapped field sits comfortably above the keyboard
   const scrollToField = (y: number) => {
@@ -58,6 +72,41 @@ export default function CreateLoadScreen() {
     };
   }, []);
 
+  const fetchPlaces = async (
+    query: string,
+    which: 'pickup' | 'delivery',
+  ) => {
+    if (!query || query.trim().length < 3) {
+      if (which === 'pickup') {
+        setPickupSuggestions([]);
+        setPickupLoading(false);
+      } else {
+        setDeliverySuggestions([]);
+        setDeliveryLoading(false);
+      }
+      return;
+    }
+    which === 'pickup' ? setPickupLoading(true) : setDeliveryLoading(true);
+    try {
+      const results = await apiFetch<PlaceSuggestion[]>(`/api/places?q=${encodeURIComponent(query)}`, {
+        method: 'GET',
+      });
+      if (which === 'pickup') {
+        setPickupSuggestions(results);
+      } else {
+        setDeliverySuggestions(results);
+      }
+    } catch {
+      if (which === 'pickup') {
+        setPickupSuggestions([]);
+      } else {
+        setDeliverySuggestions([]);
+      }
+    } finally {
+      which === 'pickup' ? setPickupLoading(false) : setDeliveryLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!token) {
       Alert.alert('Not signed in', 'Please sign in again.');
@@ -76,6 +125,17 @@ export default function CreateLoadScreen() {
       return;
     }
 
+    const finalPickupUrl =
+      pickupMapsUrl ||
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        pickupAddress,
+      )}`;
+    const finalDeliveryUrl =
+      deliveryMapsUrl ||
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        deliveryAddress,
+      )}`;
+
     try {
       setSaving(true);
       await apiFetch('/api/loads', {
@@ -88,6 +148,8 @@ export default function CreateLoadScreen() {
           recipientName,
           recipientNumber,
           fareOffer: fare,
+          pickupMapsUrl: finalPickupUrl,
+          deliveryMapsUrl: finalDeliveryUrl,
         }),
         token,
       });
@@ -119,26 +181,80 @@ export default function CreateLoadScreen() {
             <Text style={styles.label}>Pickup address</Text>
             <TextInput
               value={pickupAddress}
-              onChangeText={setPickupAddress}
+              onChangeText={(text) => {
+                setPickupAddress(text);
+                setPickupMapsUrl(null);
+                if (pickupTimeoutRef.current) clearTimeout(pickupTimeoutRef.current);
+                pickupTimeoutRef.current = setTimeout(
+                  () => fetchPlaces(text, 'pickup'),
+                  400,
+                );
+              }}
               style={styles.input}
               placeholder="e.g. Victoria Island, Lagos"
               placeholderTextColor="#9CA3AF"
               onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
               returnKeyType="next"
             />
+            {(pickupLoading || pickupSuggestions.length > 0) && (
+              <View style={styles.suggestionsBox}>
+                {pickupLoading && (
+                  <Text style={styles.suggestionText}>Searching…</Text>
+                )}
+                {pickupSuggestions.map((s) => (
+                  <Pressable
+                    key={s.id}
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      setPickupAddress(s.label);
+                      setPickupMapsUrl(s.mapsUrl);
+                      setPickupSuggestions([]);
+                    }}>
+                    <Text style={styles.suggestionText}>{s.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>Delivery address</Text>
             <TextInput
               value={deliveryAddress}
-              onChangeText={setDeliveryAddress}
+              onChangeText={(text) => {
+                setDeliveryAddress(text);
+                setDeliveryMapsUrl(null);
+                if (deliveryTimeoutRef.current) clearTimeout(deliveryTimeoutRef.current);
+                deliveryTimeoutRef.current = setTimeout(
+                  () => fetchPlaces(text, 'delivery'),
+                  400,
+                );
+              }}
               style={styles.input}
               placeholder="e.g. Abuja city centre"
               placeholderTextColor="#9CA3AF"
               onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
               returnKeyType="next"
             />
+            {(deliveryLoading || deliverySuggestions.length > 0) && (
+              <View style={styles.suggestionsBox}>
+                {deliveryLoading && (
+                  <Text style={styles.suggestionText}>Searching…</Text>
+                )}
+                {deliverySuggestions.map((s) => (
+                  <Pressable
+                    key={s.id}
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      setDeliveryAddress(s.label);
+                      setDeliveryMapsUrl(s.mapsUrl);
+                      setDeliverySuggestions([]);
+                    }}>
+                    <Text style={styles.suggestionText}>{s.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
 
           <View style={styles.field}>
@@ -284,6 +400,23 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  suggestionsBox: {
+    marginTop: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#ffffff',
+  },
+  suggestionItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  suggestionText: {
+    fontSize: 13,
+    color: '#374151',
   },
   button: {
     marginTop: 8,
