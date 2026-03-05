@@ -34,7 +34,7 @@ export default function ShipperOnboardingScreen() {
         token,
       });
 
-      router.replace('/(shipper)/profile');
+      router.replace('/(shipper)/(tabs)/profile');
     } catch (error: any) {
       Alert.alert('Could not save details', error.message ?? 'Please try again.');
     } finally {

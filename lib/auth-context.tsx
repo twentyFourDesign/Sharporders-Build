@@ -42,8 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Restore token and user from backend
         setToken(stored);
-        // Optionally, you could fetch the user from /me; for now we keep it null until login in this session.
+        try {
+          const me = await apiFetch<AuthUser>('/api/me', {
+            method: 'GET',
+            token: stored,
+          });
+          if (!isMounted) return;
+          setUser(me);
+        } catch {
+          // If token is invalid, clear it
+          if (!isMounted) return;
+          setToken(null);
+          await AsyncStorage.removeItem(STORAGE_KEY);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }

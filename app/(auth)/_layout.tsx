@@ -7,7 +7,9 @@ export default function AuthLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="signup-shipper" />
       <Stack.Screen name="signup-driver" />
+      <Stack.Screen name="verify-email" />
     </Stack>
   );
 }
+
 

@@ -1,22 +1,34 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 
-import { useAuth } from '@/lib/auth-context';
 import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 type Truck = {
   id: string;
   name: string;
 };
 
-export default function DriverOnboardingScreen() {
+export default function CreateLoadScreen() {
   const { token } = useAuth();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [truckType, setTruckType] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
+  const [description, setDescription] = useState('');
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientNumber, setRecipientNumber] = useState('');
+  const [fareOffer, setFareOffer] = useState('');
   const [saving, setSaving] = useState(false);
   const [trucks, setTrucks] = useState<Truck[]>([]);
 
@@ -29,7 +41,7 @@ export default function DriverOnboardingScreen() {
         if (!isMounted) return;
         setTrucks(data);
       } catch {
-        // ignore
+        // ignore, fallback to free text
       }
     };
 
@@ -47,72 +59,72 @@ export default function DriverOnboardingScreen() {
       return;
     }
 
-    if (!firstName || !lastName) {
-      Alert.alert('Missing details', 'First and last name are required.');
+    if (!pickupAddress || !deliveryAddress || !truckType || !description || !fareOffer) {
+      Alert.alert('Missing details', 'Please fill all required fields.');
+      return;
+    }
+
+    const fare = Number(fareOffer);
+    if (Number.isNaN(fare) || fare <= 0) {
+      Alert.alert('Invalid fare', 'Enter a valid fare offer.');
       return;
     }
 
     try {
       setSaving(true);
-      await apiFetch('/api/users', {
+      await apiFetch('/api/loads', {
         method: 'POST',
         body: JSON.stringify({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          phoneNumber: phoneNumber.trim() || null,
-          truckType: truckType.trim() || null,
-          licenseNumber: licenseNumber.trim() || null,
+          pickupAddress,
+          deliveryAddress,
+          truckType,
+          loadDescription: description,
+          recipientName,
+          recipientNumber,
+          fareOffer: fare,
         }),
         token,
       });
 
-      router.replace('/(driver)/(tabs)/profile');
+      router.replace('/(shipper)/(tabs)/loads');
     } catch (error: any) {
-      Alert.alert('Could not save details', error.message ?? 'Please try again.');
+      Alert.alert('Could not create load', error?.message ?? 'Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Set up your driver profile</Text>
-      <Text style={styles.body}>
-        These details help shippers understand who you are and what truck you drive.
-      </Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={80}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>Create load</Text>
+        <Text style={styles.subtitle}>Set up pickup, dropoff and basic load details.</Text>
 
-      <View style={styles.form}>
-        <View style={styles.row}>
-          <View style={[styles.field, { flex: 1 }]}>
-            <Text style={styles.label}>First name</Text>
-            <TextInput
-              value={firstName}
-              onChangeText={setFirstName}
-              style={styles.input}
-              placeholder="John"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-          <View style={[styles.field, { flex: 1 }]}>
-            <Text style={styles.label}>Last name</Text>
-            <TextInput
-              value={lastName}
-              onChangeText={setLastName}
-              style={styles.input}
-              placeholder="Doe"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
+        <View style={styles.form}>
+        <View style={styles.field}>
+          <Text style={styles.label}>Pickup address</Text>
+          <TextInput
+            value={pickupAddress}
+            onChangeText={setPickupAddress}
+            style={styles.input}
+            placeholder="e.g. Victoria Island, Lagos"
+            placeholderTextColor="#9CA3AF"
+          />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Phone number</Text>
+          <Text style={styles.label}>Delivery address</Text>
           <TextInput
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
+            value={deliveryAddress}
+            onChangeText={setDeliveryAddress}
             style={styles.input}
-            placeholder="+234 800 000 0000"
+            placeholder="e.g. Abuja city centre"
             placeholderTextColor="#9CA3AF"
           />
         </View>
@@ -144,19 +156,55 @@ export default function DriverOnboardingScreen() {
               value={truckType}
               onChangeText={setTruckType}
               style={styles.input}
-              placeholder="10-tyre, 40ft trailer…"
+              placeholder="e.g. 10-tyre flatbed"
               placeholderTextColor="#9CA3AF"
             />
           )}
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>License number</Text>
+          <Text style={styles.label}>Load description</Text>
           <TextInput
-            value={licenseNumber}
-            onChangeText={setLicenseNumber}
+            value={description}
+            onChangeText={setDescription}
+            style={[styles.input, styles.inputMultiline]}
+            multiline
+            placeholder="What is being shipped?"
+            placeholderTextColor="#9CA3AF"
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Recipient name</Text>
+          <TextInput
+            value={recipientName}
+            onChangeText={setRecipientName}
             style={styles.input}
-            placeholder="ABC-123-456"
+            placeholder="Receiver's name"
+            placeholderTextColor="#9CA3AF"
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Recipient phone</Text>
+          <TextInput
+            value={recipientNumber}
+            onChangeText={setRecipientNumber}
+            style={styles.input}
+            keyboardType="phone-pad"
+            placeholder="+234 800 000 0000"
+            placeholderTextColor="#9CA3AF"
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Fare offer (NGN)</Text>
+          <TextInput
+            value={fareOffer}
+            onChangeText={setFareOffer}
+            style={styles.input}
+            keyboardType="numeric"
+            placeholder="e.g. 75000"
             placeholderTextColor="#9CA3AF"
           />
         </View>
@@ -165,10 +213,11 @@ export default function DriverOnboardingScreen() {
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPress={handleSave}
           disabled={saving}>
-          <Text style={styles.buttonText}>{saving ? 'Saving…' : 'Continue to profile'}</Text>
+          <Text style={styles.buttonText}>{saving ? 'Creating…' : 'Create load'}</Text>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -180,25 +229,21 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
     paddingTop: 80,
-    paddingBottom: 40,
-    gap: 24,
+    paddingBottom: 32,
+    gap: 16,
   },
   title: {
     fontSize: 26,
     fontWeight: '700',
     color: '#111827',
   },
-  body: {
+  subtitle: {
     fontSize: 14,
     color: '#6B7280',
   },
   form: {
     marginTop: 24,
     gap: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
   },
   field: {
     gap: 6,
@@ -216,6 +261,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#111827',
     backgroundColor: '#F9FAFB',
+  },
+  inputMultiline: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   button: {
     marginTop: 8,

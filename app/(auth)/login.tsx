@@ -29,9 +29,9 @@ export default function LoginScreen() {
       }
 
       if (roleOrStatus === 'shipper') {
-        router.replace('/(shipper)/onboarding');
+        router.replace('/(shipper)/(tabs)/dashboard');
       } else {
-        router.replace('/(driver)/onboarding');
+        router.replace('/(driver)/(tabs)/dashboard');
       }
     } catch (error: any) {
       Alert.alert('Login failed', error.message ?? 'Please try again.');
