@@ -1,9 +1,16 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function RoleSelectScreen() {
   return (
     <View style={styles.container}>
+      <View style={styles.logoWrapper}>
+        <Image
+          source={require('../../assets/sharp-logo.jpg')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
       <Text style={styles.title}>Join SharpOrder</Text>
       <Text style={styles.subtitle}>Choose how you want to use the app</Text>
 
@@ -44,6 +51,14 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     backgroundColor: '#ffffff',
     gap: 32,
+  },
+  logoWrapper: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logo: {
+    width: 120,
+    height: 120,
   },
   title: {
     fontSize: 28,

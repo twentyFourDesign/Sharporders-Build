@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { useAuth } from '@/lib/auth-context';
@@ -42,12 +42,19 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome back</Text>
-      <Text style={styles.subtitle}>Log in to manage your shipments and loads.</Text>
+      <View style={styles.header}>
+        <Image
+          source={require('../../assets/sharp-logo.jpg')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.subtitle}>Sign in to your account to continue shipping.</Text>
+      </View>
 
       <View style={styles.form}>
         <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>Email address</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -55,7 +62,7 @@ export default function LoginScreen() {
             keyboardType="email-address"
             style={styles.input}
             placeholder="you@example.com"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor="#A0AEC0"
           />
         </View>
 
@@ -67,7 +74,7 @@ export default function LoginScreen() {
             secureTextEntry
             style={styles.input}
             placeholder="••••••••"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor="#A0AEC0"
           />
         </View>
 
@@ -79,14 +86,16 @@ export default function LoginScreen() {
             pressed && styles.buttonPressed,
             submitting && styles.buttonDisabled,
           ]}>
-          <Text style={styles.buttonText}>{submitting ? 'Logging in…' : 'Log in'}</Text>
+          <Text style={styles.buttonText}>{submitting ? 'Logging in…' : 'LOGIN'}</Text>
         </Pressable>
       </View>
 
       <Pressable
         style={({ pressed }) => [styles.footerLink, pressed && styles.footerLinkPressed]}
         onPress={() => router.replace('/(auth)/role-select')}>
-        <Text style={styles.footerLinkText}>New to SharpOrder? Create an account</Text>
+        <Text style={styles.footerLinkText}>
+          Don&apos;t have an account? <Text style={styles.footerLinkTextBold}>Sign up</Text>
+        </Text>
       </Pressable>
     </View>
   );
@@ -101,6 +110,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     gap: 24,
   },
+  header: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+  },
   title: {
     fontSize: 28,
     fontWeight: '700',
@@ -109,9 +126,10 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#6B7280',
+    textAlign: 'center',
   },
   form: {
-    marginTop: 8,
+    marginTop: 24,
     gap: 16,
   },
   field: {
@@ -119,23 +137,23 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#111827',
+    color: '#6B7280',
   },
   input: {
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
     color: '#111827',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#ffffff',
   },
   button: {
-    marginTop: 8,
-    borderRadius: 999,
-    backgroundColor: '#111827',
-    paddingVertical: 12,
+    marginTop: 16,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+    paddingVertical: 14,
     alignItems: 'center',
   },
   buttonPressed: {
@@ -148,6 +166,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     fontSize: 15,
+    letterSpacing: 0.5,
   },
   footerLink: {
     marginTop: 'auto',
@@ -158,8 +177,12 @@ const styles = StyleSheet.create({
   },
   footerLinkText: {
     textAlign: 'center',
-    color: '#111827',
+    color: '#6B7280',
     fontSize: 14,
+  },
+  footerLinkTextBold: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });
 

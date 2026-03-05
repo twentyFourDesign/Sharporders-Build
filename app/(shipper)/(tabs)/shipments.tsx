@@ -43,12 +43,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  pending: '#d97706',
-  picked_up: '#2563eb',
-  in_transit: '#7c3aed',
-  approaching_dropoff: '#0891b2',
-  delivered: '#16a34a',
-  cancelled: '#dc2626',
+  pending: '#F59E0B',
+  picked_up: '#007AFF',
+  in_transit: '#2563EB',
+  approaching_dropoff: '#0EA5E9',
+  delivered: '#1D4ED8',
+  cancelled: '#DC2626',
 };
 
 export default function ShipperShipmentsScreen() {
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB',
     padding: 16, backgroundColor: '#F9FAFB', gap: 6,
   },
-  cardDelivered: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
+  cardDelivered: { borderColor: '#1D4ED8', backgroundColor: '#EFF6FF' },
   badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, gap: 5, marginBottom: 4 },
   badgeDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 12, fontWeight: '600' },

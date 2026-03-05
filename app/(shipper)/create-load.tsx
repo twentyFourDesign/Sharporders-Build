@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -31,6 +31,12 @@ export default function CreateLoadScreen() {
   const [fareOffer, setFareOffer] = useState('');
   const [saving, setSaving] = useState(false);
   const [trucks, setTrucks] = useState<Truck[]>([]);
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Scrolls so the tapped field sits comfortably above the keyboard
+  const scrollToField = (y: number) => {
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 120), animated: true });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -96,141 +102,154 @@ export default function CreateLoadScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={80}>
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
       <ScrollView
-        style={styles.container}
+        ref={scrollRef}
+        style={styles.flex}
         contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Create load</Text>
         <Text style={styles.subtitle}>Set up pickup, dropoff and basic load details.</Text>
 
         <View style={styles.form}>
-        <View style={styles.field}>
-          <Text style={styles.label}>Pickup address</Text>
-          <TextInput
-            value={pickupAddress}
-            onChangeText={setPickupAddress}
-            style={styles.input}
-            placeholder="e.g. Victoria Island, Lagos"
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Delivery address</Text>
-          <TextInput
-            value={deliveryAddress}
-            onChangeText={setDeliveryAddress}
-            style={styles.input}
-            placeholder="e.g. Abuja city centre"
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Truck type</Text>
-          {trucks.length > 0 ? (
-            <View style={styles.chipRow}>
-              {trucks.map((t) => {
-                const selected = truckType === t.name;
-                return (
-                  <Pressable
-                    key={t.id}
-                    onPress={() => setTruckType(t.name)}
-                    style={({ pressed }) => [
-                      styles.chip,
-                      selected && styles.chipSelected,
-                      pressed && styles.chipPressed,
-                    ]}>
-                    <Text style={selected ? styles.chipTextSelected : styles.chipText}>
-                      {t.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : (
+          <View style={styles.field}>
+            <Text style={styles.label}>Pickup address</Text>
             <TextInput
-              value={truckType}
-              onChangeText={setTruckType}
+              value={pickupAddress}
+              onChangeText={setPickupAddress}
               style={styles.input}
-              placeholder="e.g. 10-tyre flatbed"
+              placeholder="e.g. Victoria Island, Lagos"
               placeholderTextColor="#9CA3AF"
+              onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
+              returnKeyType="next"
             />
-          )}
-        </View>
+          </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Load description</Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            style={[styles.input, styles.inputMultiline]}
-            multiline
-            placeholder="What is being shipped?"
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Delivery address</Text>
+            <TextInput
+              value={deliveryAddress}
+              onChangeText={setDeliveryAddress}
+              style={styles.input}
+              placeholder="e.g. Abuja city centre"
+              placeholderTextColor="#9CA3AF"
+              onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
+              returnKeyType="next"
+            />
+          </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Recipient name</Text>
-          <TextInput
-            value={recipientName}
-            onChangeText={setRecipientName}
-            style={styles.input}
-            placeholder="Receiver's name"
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Truck type</Text>
+            {trucks.length > 0 ? (
+              <View style={styles.chipRow}>
+                {trucks.map((t) => {
+                  const selected = truckType === t.name;
+                  return (
+                    <Pressable
+                      key={t.id}
+                      onPress={() => setTruckType(t.name)}
+                      style={({ pressed }) => [
+                        styles.chip,
+                        selected && styles.chipSelected,
+                        pressed && styles.chipPressed,
+                      ]}>
+                      <Text style={selected ? styles.chipTextSelected : styles.chipText}>
+                        {t.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <TextInput
+                value={truckType}
+                onChangeText={setTruckType}
+                style={styles.input}
+                placeholder="e.g. 10-tyre flatbed"
+                placeholderTextColor="#9CA3AF"
+                onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
+              />
+            )}
+          </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Recipient phone</Text>
-          <TextInput
-            value={recipientNumber}
-            onChangeText={setRecipientNumber}
-            style={styles.input}
-            keyboardType="phone-pad"
-            placeholder="+234 800 000 0000"
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Load description</Text>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              style={[styles.input, styles.inputMultiline]}
+              multiline
+              placeholder="What is being shipped?"
+              placeholderTextColor="#9CA3AF"
+              onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
+            />
+          </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Fare offer (NGN)</Text>
-          <TextInput
-            value={fareOffer}
-            onChangeText={setFareOffer}
-            style={styles.input}
-            keyboardType="numeric"
-            placeholder="e.g. 75000"
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Recipient name</Text>
+            <TextInput
+              value={recipientName}
+              onChangeText={setRecipientName}
+              style={styles.input}
+              placeholder="Receiver's name"
+              placeholderTextColor="#9CA3AF"
+              onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
+              returnKeyType="next"
+            />
+          </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          onPress={handleSave}
-          disabled={saving}>
-          <Text style={styles.buttonText}>{saving ? 'Creating…' : 'Create load'}</Text>
-        </Pressable>
-      </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Recipient phone</Text>
+            <TextInput
+              value={recipientNumber}
+              onChangeText={setRecipientNumber}
+              style={styles.input}
+              keyboardType="phone-pad"
+              placeholder="+234 800 000 0000"
+              placeholderTextColor="#9CA3AF"
+              onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
+              returnKeyType="next"
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Fare offer (₦)</Text>
+            <TextInput
+              value={fareOffer}
+              onChangeText={setFareOffer}
+              style={styles.input}
+              keyboardType="numeric"
+              placeholder="e.g. 75000"
+              placeholderTextColor="#9CA3AF"
+              onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
+              returnKeyType="done"
+            />
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+            onPress={handleSave}
+            disabled={saving}>
+            <Text style={styles.buttonText}>{saving ? 'Creating…' : 'Create load'}</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
     backgroundColor: '#ffffff',
   },
   content: {
     paddingHorizontal: 24,
     paddingTop: 80,
-    paddingBottom: 32,
-    gap: 16,
+    paddingBottom: 60,
   },
   title: {
     fontSize: 26,

@@ -39,9 +39,9 @@ export default function VerifyEmailScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Confirm your email</Text>
+      <Text style={styles.title}>OTP verification</Text>
       <Text style={styles.body}>
-        We&apos;ve sent a verification code to {email || 'your email'}. Enter it below to continue.
+        Enter the 6 digit code sent to {email || 'your email'} to verify your account.
       </Text>
 
       <View style={styles.field}>
@@ -52,8 +52,8 @@ export default function VerifyEmailScreen() {
           keyboardType="number-pad"
           autoCapitalize="none"
           style={styles.input}
-          placeholder="123456"
-          placeholderTextColor="#9CA3AF"
+          placeholder="••••••"
+          placeholderTextColor="#A0AEC0"
         />
       </View>
 
@@ -62,7 +62,7 @@ export default function VerifyEmailScreen() {
         onPress={handleVerify}
         disabled={submitting}>
         <Text style={styles.buttonText}>
-          {submitting ? 'Verifying…' : 'Verify and continue'}
+          {submitting ? 'Verifying…' : 'VERIFY'}
         </Text>
       </Pressable>
     </View>
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#6B7280',
   },
   field: {
     marginTop: 24,
@@ -93,22 +93,22 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#111827',
+    color: '#6B7280',
   },
   input: {
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
     color: '#111827',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#ffffff',
   },
   button: {
     marginTop: 24,
-    borderRadius: 999,
-    backgroundColor: '#111827',
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
     paddingVertical: 14,
     alignItems: 'center',
   },
@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     fontSize: 16,
+    letterSpacing: 0.5,
   },
 });
 

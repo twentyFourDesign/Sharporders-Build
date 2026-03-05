@@ -45,11 +45,11 @@ const STATUS_STEPS = [
 type StatusKey = (typeof STATUS_STEPS)[number]['key'];
 
 const STATUS_COLOR: Record<StatusKey, string> = {
-  pending: '#d97706',
-  picked_up: '#2563eb',
-  in_transit: '#7c3aed',
-  approaching_dropoff: '#0891b2',
-  delivered: '#16a34a',
+  pending: '#F59E0B',
+  picked_up: '#007AFF',
+  in_transit: '#2563EB',
+  approaching_dropoff: '#0EA5E9',
+  delivered: '#1D4ED8',
 };
 
 const NEXT_STATUS: Partial<Record<StatusKey, StatusKey>> = {
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   emptySubText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
   listContent: { paddingTop: 4, paddingBottom: 40, gap: 16 },
   card: { borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, backgroundColor: '#F9FAFB', gap: 8 },
-  cardDelivered: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
+  cardDelivered: { borderColor: '#1D4ED8', backgroundColor: '#EFF6FF' },
   badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, gap: 5, marginBottom: 2 },
   badgeDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 12, fontWeight: '600' },
@@ -316,8 +316,8 @@ const styles = StyleSheet.create({
   locationInput: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: '#111827', backgroundColor: '#ffffff' },
   locationSaveBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center' },
   locationSaveBtnText: { fontSize: 12, fontWeight: '600', color: '#374151' },
-  nextStatusBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  nextStatusBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
-  deliveredBanner: { backgroundColor: '#dcfce7', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  deliveredBannerText: { color: '#166534', fontSize: 14, fontWeight: '700' },
+  nextStatusBtn: { borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  nextStatusBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
+  deliveredBanner: { backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  deliveredBannerText: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
 });

@@ -4,7 +4,6 @@ import {
   Alert,
   FlatList,
   Pressable,
-  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -28,28 +27,22 @@ type Load = {
 
 export default function DriverLoadBoardScreen() {
   const { token } = useAuth();
+  const [isLive, setIsLive] = useState(false);
   const [loads, setLoads] = useState<Load[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [offerByLoadId, setOfferByLoadId] = useState<Record<string, string>>({});
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchLoads = useCallback(
     async (silent = false) => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      if (!silent) setLoading(true);
+      if (!token) return;
+      if (!silent) setFetching(true);
       try {
-        const data = await apiFetch<Load[]>('/api/driver/loads', {
-          method: 'GET',
-          token,
-        });
+        const data = await apiFetch<Load[]>('/api/driver/loads', { method: 'GET', token });
         setLoads(data);
-        // Pre-fill offer inputs with previous values or the load's fareOffer
+        setError(null);
         setOfferByLoadId((prev) => {
           const next: Record<string, string> = {};
           for (const load of data) {
@@ -57,29 +50,48 @@ export default function DriverLoadBoardScreen() {
           }
           return next;
         });
-        setError(null);
       } catch (err: any) {
         setError(err.message ?? 'Failed to load board');
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        setFetching(false);
       }
     },
     [token],
   );
 
+  // Start / stop polling based on isLive toggle
   useEffect(() => {
-    fetchLoads();
-  }, [fetchLoads]);
+    if (!isLive) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
 
-  // Poll every 1.5 seconds so new loads and bid outcomes appear in real-time
-  useEffect(() => {
-    if (!token) return;
-    intervalRef.current = setInterval(() => fetchLoads(true), 1500);
+    // Immediate fetch when going live, then poll every 2s
+    fetchLoads();
+    intervalRef.current = setInterval(() => fetchLoads(true), 2000);
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [token, fetchLoads]);
+  }, [isLive, fetchLoads]);
+
+  const handleGoLive = () => {
+    setLoads([]);
+    setError(null);
+    setIsLive(true);
+  };
+
+  const handleGoOffline = () => {
+    setIsLive(false);
+    setLoads([]);
+    setError(null);
+  };
 
   const handleApply = async (loadId: string) => {
     if (!token) return;
@@ -96,7 +108,6 @@ export default function DriverLoadBoardScreen() {
         body: JSON.stringify({ loadId, offerAmount: amount }),
         token,
       });
-      // Optimistically mark as applied
       setLoads((prev) =>
         prev.map((l) =>
           l.id === loadId ? { ...l, appliedByMe: true, myBidStatus: 'pending' } : l,
@@ -109,7 +120,7 @@ export default function DriverLoadBoardScreen() {
     }
   };
 
-  const renderApplyButton = (item: Load) => {
+  const renderBidState = (item: Load) => {
     if (item.myBidStatus === 'accepted') {
       return (
         <View style={styles.acceptedPill}>
@@ -117,7 +128,6 @@ export default function DriverLoadBoardScreen() {
         </View>
       );
     }
-
     if (item.myBidStatus === 'rejected') {
       return (
         <View style={styles.rejectedPill}>
@@ -125,7 +135,6 @@ export default function DriverLoadBoardScreen() {
         </View>
       );
     }
-
     if (item.myBidStatus === 'pending') {
       return (
         <View style={styles.pendingPill}>
@@ -134,49 +143,90 @@ export default function DriverLoadBoardScreen() {
       );
     }
 
-    // Not applied yet
     return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.applyButton,
-          pressed && { opacity: 0.85 },
-          applyingId === item.id && { opacity: 0.6 },
-        ]}
-        onPress={() => handleApply(item.id)}
-        disabled={!!applyingId}>
-        <Text style={styles.applyButtonText}>
-          {applyingId === item.id ? 'Applying…' : 'Apply'}
-        </Text>
-      </Pressable>
+      <>
+        <View style={styles.amountRow}>
+          <Text style={styles.amountLabel}>Your offer (₦)</Text>
+          <TextInput
+            style={styles.amountInput}
+            value={offerByLoadId[item.id] ?? ''}
+            onChangeText={(text) =>
+              setOfferByLoadId((prev) => ({ ...prev, [item.id]: text }))
+            }
+            placeholder={String(item.fareOffer ?? '')}
+            keyboardType="numeric"
+            editable={!applyingId}
+          />
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.applyButton,
+            pressed && { opacity: 0.85 },
+            applyingId === item.id && { opacity: 0.6 },
+          ]}
+          onPress={() => handleApply(item.id)}
+          disabled={!!applyingId}>
+          <Text style={styles.applyButtonText}>
+            {applyingId === item.id ? 'Applying…' : 'Apply'}
+          </Text>
+        </Pressable>
+      </>
     );
   };
 
+  // ── OFFLINE STATE ──
+  if (!isLive) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Load board</Text>
+        <View style={styles.offlineBox}>
+          <Text style={styles.offlineEmoji}>🚛</Text>
+          <Text style={styles.offlineHeading}>You are offline</Text>
+          <Text style={styles.offlineSubtext}>
+            Tap Go Live to start seeing available loads and receive bids in real-time.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.goLiveBtn, pressed && { opacity: 0.85 }]}
+            onPress={handleGoLive}>
+            <Text style={styles.goLiveBtnText}>Go Live</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ── LIVE STATE ──
   return (
     <View style={styles.container}>
+      {/* Header with live indicator + stop button */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>Load board</Text>
-        <View style={styles.liveIndicator}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>Live</Text>
+        <View style={styles.headerRight}>
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>Live</Text>
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.stopBtn, pressed && { opacity: 0.8 }]}
+            onPress={handleGoOffline}>
+            <Text style={styles.stopBtnText}>Stop</Text>
+          </Pressable>
         </View>
       </View>
 
-      {loading && loads.length === 0 && (
-        <View style={styles.center}>
-          <ActivityIndicator />
-        </View>
+      {fetching && loads.length === 0 && (
+        <View style={styles.center}><ActivityIndicator /></View>
       )}
 
-      {!loading && error && loads.length === 0 && (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
+      {!fetching && error && loads.length === 0 && (
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>
       )}
 
-      {!loading && !error && loads.length === 0 && (
+      {!fetching && !error && loads.length === 0 && (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No loads available right now.</Text>
-          <Text style={styles.emptySubText}>This board auto-refreshes.</Text>
+          <ActivityIndicator size="small" color="#9CA3AF" style={{ marginBottom: 10 }} />
+          <Text style={styles.waitingText}>Waiting for available loads…</Text>
+          <Text style={styles.waitingSubText}>This board updates automatically.</Text>
         </View>
       )}
 
@@ -185,15 +235,6 @@ export default function DriverLoadBoardScreen() {
           data={loads}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchLoads(true);
-              }}
-            />
-          }
           renderItem={({ item }) => (
             <View
               style={[
@@ -205,26 +246,12 @@ export default function DriverLoadBoardScreen() {
                 {item.pickupAddress} → {item.deliveryAddress}
               </Text>
               <Text style={styles.cardMeta}>
-                {item.truckType} • ₦{item.fareOffer}
+                {item.truckType} • ₦{item.fareOffer.toLocaleString()}
               </Text>
               <Text style={styles.cardDescription} numberOfLines={2}>
                 {item.loadDescription}
               </Text>
-              {/* Bid amount input */}
-              <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>Your offer (₦)</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  value={offerByLoadId[item.id] ?? ''}
-                  onChangeText={(text) =>
-                    setOfferByLoadId((prev) => ({ ...prev, [item.id]: text }))
-                  }
-                  placeholder={String(item.fareOffer ?? '')}
-                  keyboardType="numeric"
-                  editable={!applyingId && item.myBidStatus == null}
-                />
-              </View>
-              {renderApplyButton(item)}
+              {renderBidState(item)}
             </View>
           )}
         />
@@ -234,163 +261,108 @@ export default function DriverLoadBoardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    backgroundColor: '#ffffff',
-  },
+  container: { flex: 1, paddingHorizontal: 24, paddingTop: 80, backgroundColor: '#ffffff' },
+  title: { fontSize: 22, fontWeight: '700', color: '#111827' },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 14,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  liveIndicator: {
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  livePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#EFF6FF',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#16a34a',
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#007AFF' },
+  liveText: { fontSize: 12, fontWeight: '700', color: '#007AFF' },
+  stopBtn: {
+    borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5,
+    backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FECACA',
   },
-  liveText: {
-    fontSize: 12,
+  stopBtnText: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
+
+  // Offline screen
+  offlineBox: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10,
+    paddingHorizontal: 24,
+  },
+  offlineEmoji: { fontSize: 52, marginBottom: 4 },
+  offlineHeading: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  offlineSubtext: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  goLiveBtn: {
+    marginTop: 16,
+    borderRadius: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    backgroundColor: '#007AFF',
+  },
+  goLiveBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '700',
-    color: '#16a34a',
+    letterSpacing: 0.5,
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
+
+  // Live list
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
   errorText: { color: '#b91c1c' },
-  emptyText: { color: '#111827', fontWeight: '600', fontSize: 15 },
-  emptySubText: { color: '#6B7280', fontSize: 13 },
-  listContent: {
-    paddingTop: 8,
-    paddingBottom: 32,
-    gap: 12,
-  },
+  waitingText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  waitingSubText: { fontSize: 13, color: '#9CA3AF' },
+  listContent: { paddingTop: 4, paddingBottom: 32, gap: 12 },
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    backgroundColor: '#F9FAFB',
-    gap: 5,
+    borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB',
+    padding: 16, backgroundColor: '#F9FAFB', gap: 6,
   },
-  cardAccepted: {
-    borderColor: '#16a34a',
-    backgroundColor: '#f0fdf4',
-  },
-  cardRejected: {
-    opacity: 0.45,
-  },
-  cardRoute: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  cardMeta: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  cardDescription: {
-    fontSize: 13,
-    color: '#4B5563',
-    marginBottom: 4,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 2,
-  },
-  amountLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
+  cardAccepted: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
+  cardRejected: { opacity: 0.45 },
+  cardRoute: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  cardMeta: { fontSize: 13, color: '#6B7280' },
+  cardDescription: { fontSize: 13, color: '#4B5563', marginBottom: 2 },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  amountLabel: { fontSize: 12, color: '#6B7280' },
   amountInput: {
-    flex: 1,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 13,
-    color: '#111827',
-    backgroundColor: '#ffffff',
+    flex: 1, borderRadius: 999, borderWidth: 1, borderColor: '#E5E7EB',
+    paddingHorizontal: 10, paddingVertical: 6,
+    fontSize: 13, color: '#111827', backgroundColor: '#ffffff',
   },
   applyButton: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 16,
-    paddingVertical: 9,
-    backgroundColor: '#111827',
-    marginTop: 4,
+    paddingVertical: 10,
+    backgroundColor: '#007AFF',
+    marginTop: 2,
   },
   applyButtonText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   pendingPill: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#fffbeb',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-    marginTop: 4,
+    alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 12,
+    paddingVertical: 6, backgroundColor: '#fffbeb',
+    borderWidth: 1, borderColor: '#fde68a',
   },
-  pendingPillText: {
-    color: '#92400e',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  pendingPillText: { color: '#92400e', fontSize: 12, fontWeight: '600' },
   acceptedPill: {
     alignSelf: 'flex-start',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#dcfce7',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#86efac',
-    marginTop: 4,
+    borderColor: '#BFDBFE',
   },
-  acceptedPillText: {
-    color: '#166534',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  acceptedPillText: { color: '#1D4ED8', fontSize: 13, fontWeight: '700' },
   rejectedPill: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#fee2e2',
-    borderWidth: 1,
-    borderColor: '#fca5a5',
-    marginTop: 4,
+    alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 12,
+    paddingVertical: 6, backgroundColor: '#fee2e2',
+    borderWidth: 1, borderColor: '#fca5a5',
   },
-  rejectedPillText: {
-    color: '#991b1b',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  rejectedPillText: { color: '#991b1b', fontSize: 12, fontWeight: '600' },
 });

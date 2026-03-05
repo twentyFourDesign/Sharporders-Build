@@ -33,12 +33,12 @@ export default function SignupDriverScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create a driver account</Text>
-      <Text style={styles.subtitle}>Use an email you can access on this device.</Text>
+      <Text style={styles.title}>Create your account</Text>
+      <Text style={styles.subtitle}>Please provide accurate details to proceed.</Text>
 
       <View style={styles.form}>
         <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>Email address</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -46,7 +46,7 @@ export default function SignupDriverScreen() {
             keyboardType="email-address"
             style={styles.input}
             placeholder="you@example.com"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor="#A0AEC0"
           />
         </View>
 
@@ -58,7 +58,7 @@ export default function SignupDriverScreen() {
             secureTextEntry
             style={styles.input}
             placeholder="••••••••"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor="#A0AEC0"
           />
         </View>
 
@@ -71,7 +71,7 @@ export default function SignupDriverScreen() {
             submitting && styles.buttonDisabled,
           ]}>
           <Text style={styles.buttonText}>
-            {submitting ? 'Creating account…' : 'Continue as driver'}
+            {submitting ? 'Creating…' : 'CREATE ACCOUNT'}
           </Text>
         </Pressable>
       </View>
@@ -106,23 +106,23 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#111827',
+    color: '#6B7280',
   },
   input: {
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
     color: '#111827',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#ffffff',
   },
   button: {
-    marginTop: 8,
-    borderRadius: 999,
-    backgroundColor: '#111827',
-    paddingVertical: 12,
+    marginTop: 16,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+    paddingVertical: 14,
     alignItems: 'center',
   },
   buttonPressed: {
@@ -135,6 +135,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     fontSize: 15,
+    letterSpacing: 0.5,
   },
 });
 

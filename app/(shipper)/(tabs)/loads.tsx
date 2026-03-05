@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -25,21 +24,21 @@ type Load = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  draft: 'Draft',
   available: 'Live',
-  applied: 'Has bids',
   in_transit: 'In transit',
+  at_pickup: 'At pickup',
+  approaching_dropoff: 'Near drop-off',
   delivered: 'Delivered',
   cancelled: 'Cancelled',
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: '#6B7280',
-  available: '#16a34a',
-  applied: '#d97706',
+  available: '#007AFF',
   in_transit: '#2563eb',
+  at_pickup: '#1D4ED8',
+  approaching_dropoff: '#0EA5E9',
   delivered: '#6B7280',
-  cancelled: '#dc2626',
+  cancelled: '#DC2626',
 };
 
 export default function ShipperLoadsScreen() {
@@ -48,15 +47,10 @@ export default function ShipperLoadsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [goingLiveId, setGoingLiveId] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchLoads = useCallback(
     async (silent = false) => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+      if (!token) { setLoading(false); return; }
       if (!silent) setLoading(true);
       try {
         const data = await apiFetch<Load[]>('/api/loads', { method: 'GET', token });
@@ -72,62 +66,31 @@ export default function ShipperLoadsScreen() {
     [token],
   );
 
-  // Initial fetch
-  useEffect(() => {
-    fetchLoads();
-  }, [fetchLoads]);
-
-  // Poll every 3 seconds so bid counts / statuses update in near-real-time
-  useEffect(() => {
-    if (!token) return;
-    intervalRef.current = setInterval(() => fetchLoads(true), 3000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [token, fetchLoads]);
-
-  const handleGoLive = async (loadId: string) => {
-    if (!token) return;
-    setGoingLiveId(loadId);
-    try {
-      await apiFetch(`/api/loads/${loadId}/go-live`, { method: 'PATCH', token });
-      // Optimistically update status
-      setLoads((prev) =>
-        prev.map((l) => (l.id === loadId ? { ...l, status: 'available' } : l)),
-      );
-    } catch (err: any) {
-      Alert.alert('Failed to go live', err.message ?? 'Please try again.');
-    } finally {
-      setGoingLiveId(null);
-    }
-  };
+  useEffect(() => { fetchLoads(); }, [fetchLoads]);
 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>My loads</Text>
         <Pressable
-          style={({ pressed }) => [styles.createButton, pressed && styles.createButtonPressed]}
+          style={({ pressed }) => [styles.createButton, pressed && { opacity: 0.85 }]}
           onPress={() => router.push('/(shipper)/create-load')}>
           <Text style={styles.createButtonText}>+ Create load</Text>
         </Pressable>
       </View>
 
       {loading && loads.length === 0 && (
-        <View style={styles.center}>
-          <ActivityIndicator />
-        </View>
+        <View style={styles.center}><ActivityIndicator /></View>
       )}
 
       {!loading && error && loads.length === 0 && (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>
       )}
 
       {!loading && !error && loads.length === 0 && (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No loads yet. Create one above.</Text>
+          <Text style={styles.emptyText}>No loads yet.</Text>
+          <Text style={styles.emptySubText}>Tap "Create load" to post your first load.</Text>
         </View>
       )}
 
@@ -139,22 +102,16 @@ export default function ShipperLoadsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchLoads(true);
-              }}
+              onRefresh={() => { setRefreshing(true); fetchLoads(true); }}
             />
           }
           renderItem={({ item }) => {
             const statusLabel = STATUS_LABEL[item.status] ?? item.status;
             const statusColor = STATUS_COLOR[item.status] ?? '#6B7280';
-            const isLive = item.status === 'available';
-            const hasBids = item.status === 'applied';
-            const canViewBids = isLive || hasBids;
+            const canViewBids = item.status === 'available';
 
             return (
               <View style={styles.card}>
-                {/* Status badge */}
                 <View style={[styles.badge, { backgroundColor: statusColor + '1A' }]}>
                   <View style={[styles.badgeDot, { backgroundColor: statusColor }]} />
                   <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
@@ -164,46 +121,24 @@ export default function ShipperLoadsScreen() {
                   {item.pickupAddress} → {item.deliveryAddress}
                 </Text>
                 <Text style={styles.cardMeta}>
-                  {item.truckType} • ₦{item.fareOffer}
+                  {item.truckType} • ₦{item.fareOffer.toLocaleString()}
                 </Text>
                 <Text style={styles.cardDescription} numberOfLines={2}>
                   {item.loadDescription}
                 </Text>
 
-                <View style={styles.actionsRow}>
-                  {/* Draft: show Go Live button */}
-                  {item.status === 'draft' && (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.goLiveButton,
-                        pressed && { opacity: 0.85 },
-                        goingLiveId === item.id && { opacity: 0.6 },
-                      ]}
-                      onPress={() => handleGoLive(item.id)}
-                      disabled={goingLiveId === item.id}>
-                      <Text style={styles.goLiveButtonText}>
-                        {goingLiveId === item.id ? 'Going live…' : '🚀 Go Live'}
-                      </Text>
-                    </Pressable>
-                  )}
-
-                  {/* Live or has bids: show View Bids button */}
-                  {canViewBids && (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.bidsButton,
-                        pressed && { opacity: 0.85 },
-                      ]}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/(shipper)/load-bids/[id]',
-                          params: { id: item.id },
-                        })
-                      }>
-                      <Text style={styles.bidsButtonText}>View bids</Text>
-                    </Pressable>
-                  )}
-                </View>
+                {canViewBids && (
+                  <Pressable
+                    style={({ pressed }) => [styles.bidsButton, pressed && { opacity: 0.85 }]}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(shipper)/load-bids/[id]',
+                        params: { id: item.id },
+                      })
+                    }>
+                    <Text style={styles.bidsButtonText}>View bids</Text>
+                  </Pressable>
+                )}
               </View>
             );
           }}
@@ -214,113 +149,55 @@ export default function ShipperLoadsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    backgroundColor: '#ffffff',
-  },
+  container: { flex: 1, paddingHorizontal: 24, paddingTop: 80, backgroundColor: '#ffffff' },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 16,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-  },
+  title: { fontSize: 22, fontWeight: '700', color: '#111827' },
   createButton: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#111827',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#007AFF',
   },
-  createButtonPressed: { opacity: 0.9 },
   createButtonText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
   errorText: { color: '#b91c1c' },
-  emptyText: { color: '#6B7280' },
-  listContent: {
-    paddingTop: 4,
-    paddingBottom: 32,
-    gap: 12,
-  },
+  emptyText: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  emptySubText: { fontSize: 13, color: '#6B7280' },
+  listContent: { paddingTop: 4, paddingBottom: 32, gap: 12 },
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    backgroundColor: '#F9FAFB',
-    gap: 6,
+    borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB',
+    padding: 16, backgroundColor: '#F9FAFB', gap: 6,
   },
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    gap: 5,
-    marginBottom: 4,
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3,
+    gap: 5, marginBottom: 2,
   },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardRoute: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  cardMeta: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  cardDescription: {
-    fontSize: 13,
-    color: '#4B5563',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  goLiveButton: {
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    backgroundColor: '#16a34a',
-  },
-  goLiveButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  badgeDot: { width: 6, height: 6, borderRadius: 3 },
+  badgeText: { fontSize: 12, fontWeight: '600' },
+  cardRoute: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  cardMeta: { fontSize: 13, color: '#6B7280' },
+  cardDescription: { fontSize: 13, color: '#4B5563' },
   bidsButton: {
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    backgroundColor: '#111827',
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    backgroundColor: '#007AFF',
+    marginTop: 4,
   },
   bidsButtonText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });

@@ -10,7 +10,7 @@ export default function Index() {
   }
 
   if (!token || !user) {
-    return <Redirect href="/(auth)/role-select" />;
+    return <Redirect href="/(auth)/onboarding" />;
   }
 
   if (user.role === 'shipper') {
