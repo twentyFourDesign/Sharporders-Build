@@ -25,10 +25,20 @@ export async function apiFetch<T>(
     },
   });
 
-  const data = await res.json();
+  let data: any = null;
+  try {
+    // Try to parse JSON if there is a body
+    const text = await res.text();
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // If response is not JSON, throw a more helpful error
+    throw new Error('Response from server was not valid JSON');
+  }
+
   if (!res.ok) {
     throw new Error(data?.error || 'Request failed');
   }
+
   return data as T;
 }
 
