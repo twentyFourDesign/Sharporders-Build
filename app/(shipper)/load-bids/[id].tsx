@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  Dimensions,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { WebView } from 'react-native-webview';
 
 import { useAuth } from '@/lib/auth-context';
 import { apiFetch } from '@/lib/api';
@@ -40,6 +41,9 @@ type LoadSummary = {
   fareOffer: number;
   loadImageUrl: string | null;
 };
+
+const MAP_HEIGHT = 340;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function LoadBidsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
@@ -203,21 +207,26 @@ export default function LoadBidsScreen() {
       </View>
 
       {load && (
-        <View style={styles.loadSummary}>
-          {load.loadImageUrl ? (
-            <Image
-              source={{ uri: load.loadImageUrl }}
-              style={styles.loadSummaryImage}
-              resizeMode="cover"
+        <View style={styles.mapContainer}>
+          {process.env.EXPO_PUBLIC_GMAPSAPI ? (
+            <WebView
+              source={{
+                html: (() => {
+                  const embedUrl = `https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(process.env.EXPO_PUBLIC_GMAPSAPI!)}&origin=${encodeURIComponent(load.pickupAddress)}&destination=${encodeURIComponent(load.deliveryAddress)}`;
+                  return `<!DOCTYPE html><html style="height:${MAP_HEIGHT}px;width:100%;margin:0;padding:0;overflow:hidden"><head><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/></head><body style="margin:0;padding:0;height:${MAP_HEIGHT}px;min-height:${MAP_HEIGHT}px;width:100%;min-width:100%;position:relative;overflow:hidden;box-sizing:border-box"><iframe style="position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${embedUrl.replace(/"/g, '&quot;')}"></iframe></body></html>`;
+                })(),
+              }}
+              style={styles.mapWebView}
+              scrollEnabled={false}
+              nestedScrollEnabled
+              originWhitelist={['*']}
             />
-          ) : null}
-          <Text style={styles.loadSummaryRoute}>
-            {load.pickupAddress} → {load.deliveryAddress}
-          </Text>
-          <Text style={styles.loadSummaryMeta}>
-            {load.truckType} • ₦{load.fareOffer.toLocaleString()}
-          </Text>
-          <Text style={styles.loadSummaryDesc} numberOfLines={2}>{load.loadDescription}</Text>
+          ) : (
+            <View style={styles.mapPlaceholder}>
+              <Text style={styles.mapPlaceholderText}>Map</Text>
+              <Text style={styles.mapPlaceholderSubtext}>Add EXPO_PUBLIC_GMAPSAPI and enable Maps Embed API to show route</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -331,9 +340,9 @@ const styles = StyleSheet.create({
   rejectButtonText: { color: '#F97316', fontSize: 13, fontWeight: '600' },
   acceptButton: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: '#16a34a', minWidth: 140, alignItems: 'center' },
   acceptButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-  loadSummary: { borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, backgroundColor: '#F9FAFB', gap: 6, marginBottom: 16 },
-  loadSummaryImage: { width: '100%', height: 140, borderRadius: 10, backgroundColor: '#E5E7EB' },
-  loadSummaryRoute: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  loadSummaryMeta: { fontSize: 13, color: '#6B7280' },
-  loadSummaryDesc: { fontSize: 13, color: '#4B5563' },
+  mapContainer: { height: MAP_HEIGHT, width: SCREEN_WIDTH, marginLeft: -24, borderRadius: 0, overflow: 'hidden', backgroundColor: '#E5E7EB' },
+  mapWebView: { width: SCREEN_WIDTH, height: MAP_HEIGHT },
+  mapPlaceholder: { width: SCREEN_WIDTH, height: MAP_HEIGHT, justifyContent: 'center', alignItems: 'center', backgroundColor: '#E5E7EB', padding: 16 },
+  mapPlaceholderText: { fontSize: 18, fontWeight: '600', color: '#6B7280' },
+  mapPlaceholderSubtext: { fontSize: 11, color: '#9CA3AF', marginTop: 4, textAlign: 'center' },
 });

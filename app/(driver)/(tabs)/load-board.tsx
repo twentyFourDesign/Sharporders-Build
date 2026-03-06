@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -35,8 +33,6 @@ export default function DriverLoadBoardScreen() {
   const [loads, setLoads] = useState<Load[]>([]);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [applyingId, setApplyingId] = useState<string | null>(null);
-  const [offerByLoadId, setOfferByLoadId] = useState<Record<string, string>>({});
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchLoads = useCallback(
@@ -47,13 +43,6 @@ export default function DriverLoadBoardScreen() {
         const data = await apiFetch<Load[]>('/api/driver/loads', { method: 'GET', token });
         setLoads(data);
         setError(null);
-        setOfferByLoadId((prev) => {
-          const next: Record<string, string> = {};
-          for (const load of data) {
-            next[load.id] = prev[load.id] ?? String(load.fareOffer ?? '');
-          }
-          return next;
-        });
       } catch (err: any) {
         setError(err.message ?? 'Failed to load board');
       } finally {
@@ -97,31 +86,8 @@ export default function DriverLoadBoardScreen() {
     setError(null);
   };
 
-  const handleApply = async (loadId: string) => {
-    if (!token) return;
-    const raw = offerByLoadId[loadId];
-    const amount = raw != null ? Number(raw) : NaN;
-    if (!raw || Number.isNaN(amount) || amount <= 0) {
-      Alert.alert('Enter amount', 'Please enter a valid bid amount.');
-      return;
-    }
-    try {
-      setApplyingId(loadId);
-      await apiFetch('/api/bids', {
-        method: 'POST',
-        body: JSON.stringify({ loadId, offerAmount: amount }),
-        token,
-      });
-      setLoads((prev) =>
-        prev.map((l) =>
-          l.id === loadId ? { ...l, appliedByMe: true, myBidStatus: 'pending' } : l,
-        ),
-      );
-    } catch (err: any) {
-      Alert.alert('Failed to apply', err.message ?? 'Please try again.');
-    } finally {
-      setApplyingId(null);
-    }
+  const openApplyScreen = (item: Load) => {
+    router.push(`/(driver)/apply-load/${item.id}?offer=${encodeURIComponent(String(item.fareOffer ?? ''))}`);
   };
 
   const renderBidState = (item: Load) => {
@@ -148,33 +114,11 @@ export default function DriverLoadBoardScreen() {
     }
 
     return (
-      <>
-        <View style={styles.amountRow}>
-          <Text style={styles.amountLabel}>Your offer (₦)</Text>
-          <TextInput
-            style={styles.amountInput}
-            value={offerByLoadId[item.id] ?? ''}
-            onChangeText={(text) =>
-              setOfferByLoadId((prev) => ({ ...prev, [item.id]: text }))
-            }
-            placeholder={String(item.fareOffer ?? '')}
-            keyboardType="numeric"
-            editable={!applyingId}
-          />
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.applyButton,
-            pressed && { opacity: 0.85 },
-            applyingId === item.id && { opacity: 0.6 },
-          ]}
-          onPress={() => handleApply(item.id)}
-          disabled={!!applyingId}>
-          <Text style={styles.applyButtonText}>
-            {applyingId === item.id ? 'Applying…' : 'Apply'}
-          </Text>
-        </Pressable>
-      </>
+      <Pressable
+        style={({ pressed }) => [styles.applyButton, pressed && { opacity: 0.85 }]}
+        onPress={() => openApplyScreen(item)}>
+        <Text style={styles.applyButtonText}>Apply</Text>
+      </Pressable>
     );
   };
 
@@ -336,13 +280,6 @@ const styles = StyleSheet.create({
   cardRoute: { fontSize: 15, fontWeight: '600', color: '#111827' },
   cardMeta: { fontSize: 13, color: '#6B7280' },
   cardDescription: { fontSize: 13, color: '#4B5563', marginBottom: 2 },
-  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  amountLabel: { fontSize: 12, color: '#6B7280' },
-  amountInput: {
-    flex: 1, borderRadius: 999, borderWidth: 1, borderColor: '#E5E7EB',
-    paddingHorizontal: 10, paddingVertical: 6,
-    fontSize: 13, color: '#111827', backgroundColor: '#ffffff',
-  },
   applyButton: {
     alignSelf: 'flex-start',
     borderRadius: 8,
