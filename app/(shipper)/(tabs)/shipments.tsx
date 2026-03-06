@@ -2,15 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
-  Pressable,
-  Alert,
 } from 'react-native';
 
+import { router } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
@@ -62,7 +61,6 @@ export default function ShipperShipmentsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ratingShipmentId, setRatingShipmentId] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchShipments = useCallback(
@@ -84,34 +82,6 @@ export default function ShipperShipmentsScreen() {
   );
 
   useEffect(() => { fetchShipments(); }, [fetchShipments]);
-
-  const handleRateShipment = useCallback(
-    async (shipmentId: string, rating: number) => {
-      if (!token) return;
-      if (ratingShipmentId && ratingShipmentId !== shipmentId) return;
-      try {
-        setRatingShipmentId(shipmentId);
-        const updated = await apiFetch<{ id: string; driverRating: number }>(
-          `/api/shipments/${shipmentId}/rating`,
-          {
-            method: 'POST',
-            body: JSON.stringify({ rating }),
-            token,
-          },
-        );
-        setShipments((prev) =>
-          prev.map((s) =>
-            s.id === shipmentId ? { ...s, driverRating: updated.driverRating } : s,
-          ),
-        );
-      } catch (err: any) {
-        Alert.alert('Could not save rating', err.message ?? 'Please try again.');
-      } finally {
-        setRatingShipmentId(null);
-      }
-    },
-    [token, ratingShipmentId],
-  );
 
   // Poll every 4s so driver status updates appear in near-real-time
   useEffect(() => {
@@ -153,99 +123,74 @@ export default function ShipperShipmentsScreen() {
           renderItem={({ item }) => {
             const statusLabel = STATUS_LABEL[item.status] ?? item.status;
             const statusColor = STATUS_COLOR[item.status] ?? '#6B7280';
+            const created = new Date(item.createdAt);
+            const dateStr = created.toLocaleDateString();
+            const timeStr = created.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
             const driverName =
               item.driver.firstName || item.driver.lastName
                 ? `${item.driver.firstName ?? ''} ${item.driver.lastName ?? ''}`.trim()
                 : 'Driver';
 
-            const showRating = item.status === 'delivered';
-
             return (
-              <View style={[styles.card, showRating && styles.cardDelivered]}>
-                {/* Status badge */}
-                <View style={[styles.badge, { backgroundColor: statusColor + '18' }]}>
-                  <View style={[styles.badgeDot, { backgroundColor: statusColor }]} />
-                  <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
-                </View>
-
-                {item.load.loadImageUrl ? (
-                  <Image
-                    source={{ uri: item.load.loadImageUrl }}
-                    style={styles.cardImage}
-                    resizeMode="cover"
-                  />
-                ) : null}
-
-                <Text style={styles.route}>
-                  {item.pickupAddress} → {item.deliveryAddress}
-                </Text>
-
-                <View style={styles.row}>
-                  <Text style={styles.label}>Driver</Text>
-                  <Text style={styles.value}>
-                    {driverName} • {item.driver.phoneNumber ?? 'No phone'}
-                  </Text>
-                </View>
-
-                <View style={styles.row}>
-                  <Text style={styles.label}>Truck</Text>
-                  <Text style={styles.value}>{item.load.truckType}</Text>
-                </View>
-
-                <View style={styles.row}>
-                  <Text style={styles.label}>Amount</Text>
-                  <Text style={styles.valueHighlight}>₦{item.fareOffer.toLocaleString()}</Text>
-                </View>
-
-                {item.load.recipientName && (
-                  <View style={styles.row}>
-                    <Text style={styles.label}>Recipient</Text>
-                    <Text style={styles.value}>
-                      {item.load.recipientName}
-                      {item.load.recipientNumber ? ` • ${item.load.recipientNumber}` : ''}
+              <Pressable
+                style={({ pressed }) => [styles.card, pressed && { opacity: 0.96 }]}
+                onPress={() => router.push(`/(shipper)/shipment/${item.id}`)}
+              >
+                <View style={styles.cardHeaderRow}>
+                  <View style={styles.cardTextCol}>
+                    <Text style={styles.route} numberOfLines={1}>
+                      {item.pickupAddress}
                     </Text>
-                  </View>
-                )}
-
-                {item.currentLocation && (
-                  <View style={styles.locationRow}>
-                    <Text style={styles.locationIcon}>📍</Text>
-                    <Text style={styles.locationText}>{item.currentLocation}</Text>
-                  </View>
-                )}
-
-                {showRating && (
-                  <View style={styles.ratingRow}>
-                    <Text style={styles.ratingLabel}>
-                      {item.driverRating ? 'Your rating' : 'Rate driver'}
+                    <Text style={styles.subRoute} numberOfLines={1}>
+                      {item.deliveryAddress}
                     </Text>
-                    <View style={styles.starsRow}>
-                      {[1, 2, 3, 4, 5].map((star) => {
-                        const filled = (item.driverRating ?? 0) >= star;
-                        const disabled = !!ratingShipmentId && ratingShipmentId !== item.id;
-                        return (
-                          <Pressable
-                            key={star}
-                            onPress={() => handleRateShipment(item.id, star)}
-                            disabled={disabled}
-                            hitSlop={8}
-                          >
-                            <Text
-                              style={[
-                                styles.star,
-                                filled && styles.starFilled,
-                                disabled && styles.starDisabled,
-                              ]}
-                            >
-                              {filled ? '★' : '☆'}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
+                    <Text style={styles.metaLine}>
+                      {dateStr} {timeStr}
+                    </Text>
+                    <Text style={styles.amountLine}>
+                      ₦{item.fareOffer.toLocaleString()}
+                    </Text>
+                    <Text style={styles.metaLineSmall} numberOfLines={1}>
+                      Driver: {driverName}
+                    </Text>
+                    {item.currentLocation && (
+                      <Text style={styles.metaLineSmall} numberOfLines={1}>
+                        📍 {item.currentLocation}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.cardButtonsCol}>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: statusColor + '18' },
+                      ]}
+                    >
+                      <View
+                        style={[styles.statusDot, { backgroundColor: statusColor }]}
+                      />
+                      <Text
+                        style={[styles.statusText, { color: statusColor }]}
+                        numberOfLines={1}
+                      >
+                        {statusLabel}
+                      </Text>
                     </View>
+                    {item.status === 'delivered' && (
+                      <View style={styles.ratingSummary}>
+                        <Text style={styles.ratingSummaryText}>
+                          {item.driverRating
+                            ? `★ ${item.driverRating}/5`
+                            : 'Not rated yet'}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
+                </View>
+              </Pressable>
             );
           }}
         />
@@ -263,34 +208,59 @@ const styles = StyleSheet.create({
   emptySubText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
   listContent: { paddingTop: 4, paddingBottom: 40, gap: 12 },
   card: {
-    borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB',
-    padding: 16, backgroundColor: '#F9FAFB', gap: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    gap: 10,
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
-  cardImage: {
-    width: '100%', height: 140, borderRadius: 10, backgroundColor: '#E5E7EB',
-  },
-  cardDelivered: { borderColor: '#1D4ED8', backgroundColor: '#EFF6FF' },
-  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, gap: 5, marginBottom: 4 },
-  badgeDot: { width: 6, height: 6, borderRadius: 3 },
-  badgeText: { fontSize: 12, fontWeight: '600' },
-  route: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 12, color: '#9CA3AF' },
-  value: { fontSize: 13, color: '#374151', fontWeight: '500', flexShrink: 1, textAlign: 'right' },
-  valueHighlight: { fontSize: 14, color: '#111827', fontWeight: '700' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, backgroundColor: '#EFF6FF', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
-  locationIcon: { fontSize: 12 },
-  locationText: { fontSize: 12, color: '#1D4ED8', fontWeight: '500', flex: 1 },
-  ratingRow: {
-    marginTop: 6,
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 12,
   },
-  ratingLabel: { fontSize: 12, color: '#6B7280', marginRight: 8 },
-  starsRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  star: { fontSize: 18, color: '#D1D5DB' },
-  starFilled: { color: '#F59E0B' },
-  starDisabled: { opacity: 0.5 },
+  cardTextCol: { flex: 1, gap: 3 },
+  route: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  subRoute: { fontSize: 13, color: '#4B5563' },
+  metaLine: { fontSize: 12, color: '#9CA3AF' },
+  metaLineSmall: { fontSize: 12, color: '#9CA3AF' },
+  amountLine: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  cardButtonsCol: { justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: '#F3F4F6',
+    gap: 6,
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#6B7280' },
+  statusText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  ratingSummary: {
+    marginTop: 6,
+    alignSelf: 'flex-end',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#F3F4F6',
+  },
+  ratingSummaryText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
 });
