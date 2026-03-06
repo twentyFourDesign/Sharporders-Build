@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, router } from 'expo-router';
 
 import { apiFetch } from '@/lib/api';
@@ -25,7 +26,11 @@ type Load = {
   loadImageUrl?: string | null;
   appliedByMe: boolean;
   myBidStatus: 'pending' | 'accepted' | 'rejected' | null;
+  myBidId?: string | null;
+  myBidOfferAmount?: number | null;
 };
+
+const LOAD_BOARD_CACHE_KEY = 'driver_load_board_loads_v1';
 
 export default function DriverLoadBoardScreen() {
   const { token } = useAuth();
@@ -44,6 +49,12 @@ export default function DriverLoadBoardScreen() {
       try {
         const data = await apiFetch<Load[]>('/api/driver/loads', { method: 'GET', token });
         setLoads(data);
+        // Persist latest loads so going live feels instant next time
+        try {
+          await AsyncStorage.setItem(LOAD_BOARD_CACHE_KEY, JSON.stringify(data));
+        } catch {
+          // ignore cache errors
+        }
         setError(null);
       } catch (err: any) {
         setError(err.message ?? 'Failed to load board');
@@ -64,8 +75,32 @@ export default function DriverLoadBoardScreen() {
       return;
     }
 
-    // Immediate fetch when going live, then poll every 2s
-    fetchLoads();
+    let cancelled = false;
+
+    // Hydrate from cache immediately so UI feels instant, then refresh in background.
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem(LOAD_BOARD_CACHE_KEY);
+        if (!cancelled && cached) {
+          try {
+            const parsed = JSON.parse(cached) as Load[];
+            if (Array.isArray(parsed)) {
+              setLoads(parsed);
+            }
+          } catch {
+            // ignore bad cache
+          }
+        }
+      } catch {
+        // ignore cache read errors
+      }
+      if (!cancelled) {
+        // Background refresh; keep existing list visible while fetching
+        fetchLoads(true);
+      }
+    })();
+
+    // Then poll every 2s to keep loads fresh
     intervalRef.current = setInterval(() => fetchLoads(true), 2000);
 
     return () => {
@@ -73,6 +108,7 @@ export default function DriverLoadBoardScreen() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      cancelled = true;
     };
   }, [isLive, fetchLoads]);
 
@@ -84,7 +120,6 @@ export default function DriverLoadBoardScreen() {
   }, [token, fetchLoads]);
 
   const handleGoLive = () => {
-    setLoads([]);
     setError(null);
     setIsLive(true);
   };
@@ -97,6 +132,25 @@ export default function DriverLoadBoardScreen() {
 
   const openApplyScreen = (item: Load) => {
     router.push(`/(driver)/apply-load/${item.id}?offer=${encodeURIComponent(String(item.fareOffer ?? ''))}`);
+  };
+
+  const handleCancelBid = async (bidId: string) => {
+    if (!token) return;
+    Alert.alert('Cancel bid?', 'This will withdraw your bid for this load.', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, cancel',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiFetch(`/api/bids/${bidId}`, { method: 'DELETE', token });
+            await fetchLoads(true);
+          } catch (e: any) {
+            Alert.alert('Failed', e?.message ?? 'Could not cancel bid.');
+          }
+        },
+      },
+    ]);
   };
 
   const renderBidState = (item: Load) => {
@@ -115,9 +169,40 @@ export default function DriverLoadBoardScreen() {
       );
     }
     if (item.myBidStatus === 'pending') {
+      const bidId = item.myBidId ?? null;
       return (
-        <View style={styles.pendingPill}>
-          <Text style={styles.pendingPillText}>Applied — awaiting shipper</Text>
+        <View style={styles.pendingBlock}>
+          <View style={styles.pendingPill}>
+            <Text style={styles.pendingPillText}>Applied — awaiting shipper</Text>
+          </View>
+          <View style={styles.pendingActionsRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.pendingActionBtn,
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={() =>
+                router.push(
+                  `/(driver)/apply-load/${item.id}?offer=${encodeURIComponent(
+                    String(item.myBidOfferAmount ?? item.fareOffer ?? ''),
+                  )}&bidId=${encodeURIComponent(String(bidId ?? ''))}`,
+                )
+              }
+            >
+              <Text style={styles.pendingActionBtnText}>Update bid</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.pendingCancelBtn,
+                pressed && { opacity: 0.85 },
+                !bidId && { opacity: 0.5 },
+              ]}
+              onPress={() => bidId && handleCancelBid(bidId)}
+              disabled={!bidId}
+            >
+              <Text style={styles.pendingCancelBtnText}>Cancel</Text>
+            </Pressable>
+          </View>
         </View>
       );
     }
@@ -148,18 +233,7 @@ export default function DriverLoadBoardScreen() {
             <Text style={styles.goLiveBtnText}>Go Live</Text>
           </Pressable>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.divider} />
-          </View>
-
-          <Pressable
-            style={({ pressed }) => [styles.postLoadBtn, pressed && { opacity: 0.85 }]}
-            onPress={() => router.push('/(driver)/create-load')}>
-            <Text style={styles.postLoadBtnText}>Post a Load</Text>
-          </Pressable>
-          <Text style={styles.postLoadSubtext}>Hire a driver for your own shipment</Text>
+          {/* Driver posting their own loads is disabled for now */}
         </View>
       </View>
     );
@@ -334,6 +408,24 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#fde68a',
   },
   pendingPillText: { color: '#92400e', fontSize: 12, fontWeight: '600' },
+  pendingBlock: { gap: 10, marginTop: 2 },
+  pendingActionsRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  pendingActionBtn: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#007AFF',
+  },
+  pendingActionBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  pendingCancelBtn: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#ffffff',
+  },
+  pendingCancelBtnText: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
   acceptedPill: {
     alignSelf: 'flex-start',
     borderRadius: 999,

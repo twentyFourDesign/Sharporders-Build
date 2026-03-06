@@ -28,22 +28,26 @@ type LoadDetail = {
   loadImageUrl: string | null;
   appliedByMe: boolean;
   myBidStatus: 'pending' | 'accepted' | 'rejected' | null;
+  myBidId?: string | null;
+  myBidOfferAmount?: number | null;
 };
 
 const MAP_HEIGHT = 340;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function DriverApplyLoadScreen() {
-  const params = useLocalSearchParams<{ id: string; offer?: string }>();
+  const params = useLocalSearchParams<{ id: string; offer?: string; bidId?: string }>();
   const { token } = useAuth();
   const loadId = params.id as string;
   const initialOffer = params.offer ?? '';
+  const initialBidId = params.bidId ?? '';
 
   const [load, setLoad] = useState<LoadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offer, setOffer] = useState(initialOffer);
   const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchLoad = useCallback(async () => {
     if (!token || !loadId) {
@@ -58,9 +62,13 @@ export default function DriverApplyLoadScreen() {
       });
       setLoad(data);
       setError(null);
-      if (!initialOffer && data.fareOffer) {
-        setOffer((prev) => (prev === '' ? String(data.fareOffer) : prev));
-      }
+      if (initialOffer) return;
+      setOffer((prev) => {
+        if (prev !== '') return prev;
+        if (data.myBidOfferAmount != null) return String(data.myBidOfferAmount);
+        if (data.fareOffer) return String(data.fareOffer);
+        return prev;
+      });
     } catch (err: any) {
       setError(err.message ?? 'Failed to load load details');
     } finally {
@@ -104,6 +112,54 @@ export default function DriverApplyLoadScreen() {
     }
   };
 
+  const handleUpdateBid = async (bidId: string) => {
+    if (!token) return;
+    const amount = Number(offer);
+    if (!offer.trim() || Number.isNaN(amount) || amount <= 0) {
+      Alert.alert('Enter amount', 'Please enter a valid bid amount (₦).');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await apiFetch(`/api/bids/${bidId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ offerAmount: amount }),
+        token,
+      });
+      Alert.alert('Updated', 'Your bid has been updated.', [
+        { text: 'OK', onPress: () => fetchLoad() },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Failed', err.message ?? 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelBid = async (bidId: string) => {
+    if (!token) return;
+    Alert.alert('Cancel bid?', 'This will withdraw your bid for this load.', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, cancel',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setCancelling(true);
+            await apiFetch(`/api/bids/${bidId}`, { method: 'DELETE', token });
+            Alert.alert('Cancelled', 'Your bid was cancelled.', [
+              { text: 'OK', onPress: () => router.back() },
+            ]);
+          } catch (e: any) {
+            Alert.alert('Failed', e?.message ?? 'Could not cancel bid.');
+          } finally {
+            setCancelling(false);
+          }
+        },
+      },
+    ]);
+  };
+
   if (loading && !load) {
     return (
       <View style={styles.center}>
@@ -127,6 +183,10 @@ export default function DriverApplyLoadScreen() {
 
   const alreadyApplied = load.appliedByMe;
   const canBid = load.loadStatus === 'available' && !alreadyApplied;
+  const bidId =
+    (load.myBidId && String(load.myBidId)) ||
+    (initialBidId && initialBidId !== 'null' ? initialBidId : '');
+  const canEditPending = alreadyApplied && load.myBidStatus === 'pending' && !!bidId;
 
   return (
     <ScrollView
@@ -176,7 +236,58 @@ export default function DriverApplyLoadScreen() {
         {load.truckType} • Shipper offer ₦{load.fareOffer.toLocaleString()}
       </Text>
 
-      {alreadyApplied ? (
+      {canEditPending ? (
+        <View style={styles.form}>
+          <View style={styles.statusBox}>
+            <Text style={styles.statusTitle}>Applied — awaiting shipper</Text>
+            <Text style={styles.metaTextSmall}>You can update or cancel your bid.</Text>
+          </View>
+
+          <Text style={styles.label}>Your offer (₦)</Text>
+          <TextInput
+            style={styles.input}
+            value={offer}
+            onChangeText={setOffer}
+            placeholder={String(load.fareOffer)}
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            editable={!submitting && !cancelling}
+          />
+
+          <View style={styles.actionsRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.cancelBtn,
+                pressed && { opacity: 0.85 },
+                (submitting || cancelling) && { opacity: 0.6 },
+              ]}
+              onPress={() => handleCancelBid(bidId)}
+              disabled={submitting || cancelling}
+            >
+              {cancelling ? (
+                <ActivityIndicator size="small" color="#DC2626" />
+              ) : (
+                <Text style={styles.cancelBtnText}>Cancel bid</Text>
+              )}
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitBtn,
+                pressed && { opacity: 0.85 },
+                submitting && { opacity: 0.6 },
+              ]}
+              onPress={() => handleUpdateBid(bidId)}
+              disabled={submitting || cancelling}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.submitBtnText}>Update bid</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : alreadyApplied ? (
         <View style={styles.statusBox}>
           <Text style={styles.statusTitle}>
             {load.myBidStatus === 'pending'
@@ -243,6 +354,7 @@ const styles = StyleSheet.create({
   mapPlaceholderSubtext: { fontSize: 12, color: '#9CA3AF', marginTop: 4, textAlign: 'center' },
   routeText: { fontSize: 15, fontWeight: '600', color: '#111827', marginTop: 16 },
   metaText: { fontSize: 13, color: '#6B7280', marginTop: 4 },
+  metaTextSmall: { fontSize: 12, color: '#6B7280', marginTop: 6 },
   form: { marginTop: 24, gap: 12 },
   label: { fontSize: 14, fontWeight: '600', color: '#111827' },
   input: {
@@ -261,6 +373,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     alignItems: 'center',
     marginTop: 8,
+    flex: 1,
   },
   submitBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
   statusBox: { marginTop: 24, padding: 16, backgroundColor: '#F3F4F6', borderRadius: 12 },
@@ -268,4 +381,16 @@ const styles = StyleSheet.create({
   backToBoardBtn: { marginTop: 12, paddingVertical: 8 },
   backToBoardBtnText: { fontSize: 14, color: '#007AFF', fontWeight: '600' },
   errorText: { color: '#b91c1c', marginBottom: 16 },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  cancelBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelBtnText: { color: '#DC2626', fontSize: 16, fontWeight: '700' },
 });

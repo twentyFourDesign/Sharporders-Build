@@ -9,6 +9,13 @@ export default function DriverTabsLayout() {
         tabBarActiveTintColor: '#111827',
       }}>
       <Tabs.Screen
+        name="my-loads"
+        options={{
+          // Explicitly hide route so Expo Router doesn't auto-add it as a tab
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Dashboard',
@@ -18,7 +25,7 @@ export default function DriverTabsLayout() {
       <Tabs.Screen
         name="load-board"
         options={{
-          title: 'Load board',
+          title: 'LoadBoard',
           tabBarIcon: ({ color, size }) => <Ionicons name="list-circle-outline" size={size} color={color} />,
         }}
       />
@@ -27,13 +34,6 @@ export default function DriverTabsLayout() {
         options={{
           title: 'Shipments',
           tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="my-loads"
-        options={{
-          title: 'My Loads',
-          tabBarIcon: ({ color, size }) => <Ionicons name="cube-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

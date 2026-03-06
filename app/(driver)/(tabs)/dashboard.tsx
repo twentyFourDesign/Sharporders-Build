@@ -34,7 +34,6 @@ type Load = {
 export default function DriverDashboardScreen() {
   const { user, token } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,12 +42,8 @@ export default function DriverDashboardScreen() {
     async () => {
       if (!token) { setLoading(false); return; }
       try {
-        const [shipmentsData, loadsData] = await Promise.all([
-          apiFetch<Shipment[]>('/api/shipments', { method: 'GET', token }),
-          apiFetch<Load[]>('/api/loads', { method: 'GET', token }),
-        ]);
+        const shipmentsData = await apiFetch<Shipment[]>('/api/shipments', { method: 'GET', token });
         setShipments(shipmentsData);
-        setLoads(loadsData);
         setError(null);
       } catch (err: any) {
         setError(err.message ?? 'Failed to load data');
@@ -64,7 +59,6 @@ export default function DriverDashboardScreen() {
   const total = shipments.length;
   const active = shipments.filter((s) => s.status !== 'delivered' && s.status !== 'cancelled').length;
   const delivered = shipments.filter((s) => s.status === 'delivered').length;
-  const activeLoads = loads.filter((l) => l.status === 'available').length;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -130,34 +124,6 @@ export default function DriverDashboardScreen() {
         </View>
       </View>
 
-      {/* Shipper actions */}
-      <Text style={styles.sectionLabel}>As a shipper</Text>
-      <View style={styles.actionsRow}>
-        <Pressable
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
-          onPress={() => router.push('/(driver)/create-load')}
-        >
-          <Text style={styles.primaryButtonText}>+ Post a load</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
-          onPress={() => router.push('/(driver)/(tabs)/my-loads')}
-        >
-          <Text style={styles.secondaryButtonText}>My posted loads</Text>
-        </Pressable>
-      </View>
-
-      {/* Posted loads stats */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Live loads</Text>
-          <Text style={styles.statValue}>{activeLoads}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total posted</Text>
-          <Text style={styles.statValue}>{loads.length}</Text>
-        </View>
-      </View>
 
       {/* Recent shipments */}
       <View style={styles.sectionHeader}>
@@ -195,32 +161,6 @@ export default function DriverDashboardScreen() {
         />
       )}
 
-      {/* Recent posted loads */}
-      {loads.length > 0 && (
-        <>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent posted loads</Text>
-            <Pressable onPress={() => router.push('/(driver)/(tabs)/my-loads')}>
-              <Text style={styles.sectionLink}>View all</Text>
-            </Pressable>
-          </View>
-          <FlatList
-            data={loads.slice(0, 3)}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            scrollEnabled={false}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Text style={styles.cardRoute}>{item.pickupAddress} → {item.deliveryAddress}</Text>
-                <Text style={styles.cardMeta}>₦{item.fareOffer.toLocaleString()}</Text>
-                <Text style={[styles.cardStatus, { color: item.status === 'available' ? '#111827' : '#6B7280' }]}>
-                  {item.status === 'available' ? 'Live' : item.status}
-                </Text>
-              </View>
-            )}
-          />
-        </>
-      )}
     </ScrollView>
   );
 }

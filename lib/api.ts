@@ -94,4 +94,66 @@ export async function uploadProfileImage(
   return { url: data.url! };
 }
 
+/** Upload a truck image (driver); appends to profile truckImageUrls. Returns the public URL. */
+export async function uploadTruckImage(
+  file: { uri: string; type?: string; name?: string },
+  token: string,
+): Promise<{ url: string }> {
+  const url = `${BASE_URL}/api/upload/truck-image`;
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    type: file.type ?? 'image/jpeg',
+    name: file.name ?? 'truck.jpg',
+  } as unknown as Blob);
 
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  const data = (await res.json()) as { url?: string; error?: string };
+  if (!res.ok) {
+    throw new Error(data?.error ?? 'Upload failed');
+  }
+  return { url: data.url! };
+}
+
+/** Upload a driver's licence image; returns the public URL. */
+export async function uploadLicenseImage(
+  file: { uri: string; type?: string; name?: string },
+  token: string,
+): Promise<{ url: string }> {
+  const url = `${BASE_URL}/api/upload/license-image`;
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    type: file.type ?? 'image/jpeg',
+    name: file.name ?? 'license.jpg',
+  } as unknown as Blob);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  const data = (await res.json()) as { url?: string; error?: string };
+  if (!res.ok) {
+    throw new Error(data?.error ?? 'Upload failed');
+  }
+  return { url: data.url! };
+}
+
+/** Update driver profile truck image list (e.g. after removing one). */
+export async function updateMeTruckImages(
+  truckImageUrls: string[],
+  token: string,
+): Promise<void> {
+  await apiFetch('/api/me', {
+    method: 'PATCH',
+    body: JSON.stringify({ truckImageUrls }),
+    token,
+  });
+}
