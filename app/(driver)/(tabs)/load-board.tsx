@@ -138,6 +138,19 @@ export default function DriverLoadBoardScreen() {
             onPress={handleGoLive}>
             <Text style={styles.goLiveBtnText}>Go Live</Text>
           </Pressable>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.divider} />
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [styles.postLoadBtn, pressed && { opacity: 0.85 }]}
+            onPress={() => router.push('/(driver)/create-load')}>
+            <Text style={styles.postLoadBtnText}>Post a Load</Text>
+          </Pressable>
+          <Text style={styles.postLoadSubtext}>Hire a driver for your own shipment</Text>
         </View>
       </View>
     );
@@ -261,6 +274,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, width: '80%' },
+  divider: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerText: { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },
+  postLoadBtn: {
+    borderRadius: 8, paddingHorizontal: 32, paddingVertical: 14,
+    backgroundColor: '#111827', borderWidth: 0,
+  },
+  postLoadBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  postLoadSubtext: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
 
   // Live list
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },

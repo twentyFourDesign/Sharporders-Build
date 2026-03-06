@@ -1,0 +1,332 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useLocalSearchParams, router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import { WebView } from 'react-native-webview';
+
+import { useAuth } from '@/lib/auth-context';
+import { apiFetch } from '@/lib/api';
+
+type Bid = {
+  id: string;
+  offerAmount: number | null;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: string;
+  driver: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    phoneNumber: string | null;
+    truckType: string | null;
+  };
+};
+
+type LoadSummary = {
+  id: string;
+  pickupAddress: string;
+  deliveryAddress: string;
+  truckType: string;
+  loadDescription: string;
+  fareOffer: number;
+  loadImageUrl: string | null;
+};
+
+const MAP_HEIGHT = 340;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+export default function DriverLoadBidsScreen() {
+  const params = useLocalSearchParams<{ id: string }>();
+  const { token } = useAuth();
+  const [load, setLoad] = useState<LoadSummary | null>(null);
+  const [bids, setBids] = useState<Bid[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [payingBidId, setPayingBidId] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadId = params.id as string;
+
+  const fetchBids = useCallback(
+    async (silent = false) => {
+      if (!token || !loadId) { setLoading(false); return; }
+      if (!silent) setLoading(true);
+      try {
+        const data = await apiFetch<{ load: LoadSummary; bids: Bid[] }>(
+          `/api/loads/${loadId}/bids`,
+          { method: 'GET', token },
+        );
+        setLoad(data.load);
+        setBids(data.bids);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message ?? 'Failed to load bids');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [token, loadId],
+  );
+
+  useEffect(() => { fetchBids(); }, [fetchBids]);
+
+  useEffect(() => {
+    if (!token || !loadId) return;
+    intervalRef.current = setInterval(() => fetchBids(true), 2000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [token, loadId, fetchBids]);
+
+  const handleReject = async (bidId: string) => {
+    if (!token) return;
+    try {
+      setActingId(bidId);
+      await apiFetch('/api/bids/respond', {
+        method: 'POST',
+        body: JSON.stringify({ bidId, action: 'reject' }),
+        token,
+      });
+      setBids((prev) => prev.map((b) => (b.id === bidId ? { ...b, status: 'rejected' } : b)));
+    } catch (err: any) {
+      Alert.alert('Failed', err.message ?? 'Please try again.');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const handleAccept = async (bidId: string) => {
+    if (!token) return;
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    try {
+      setPayingBidId(bidId);
+      const initRes = await apiFetch<{
+        status: string;
+        authorizationUrl: string;
+        reference: string;
+      }>('/api/bids/respond', {
+        method: 'POST',
+        body: JSON.stringify({ bidId, action: 'accept' }),
+        token,
+      });
+
+      if (initRes.status !== 'payment_required') {
+        throw new Error('Unexpected response from server');
+      }
+
+      await WebBrowser.openBrowserAsync(initRes.authorizationUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+      });
+
+      let verifyRes: { status: string } | null = null;
+      let lastVerifyError = 'Payment was not completed. You can try again.';
+
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+        try {
+          verifyRes = await apiFetch<{ status: string }>('/api/payments/verify', {
+            method: 'POST',
+            body: JSON.stringify({ reference: initRes.reference }),
+            token,
+          });
+          if (verifyRes.status === 'success' || verifyRes.status === 'already_processed') break;
+        } catch (e: any) {
+          lastVerifyError = e.message ?? lastVerifyError;
+          if (e.message?.includes('not found') || e.message?.includes('Unauthorized')) break;
+        }
+      }
+
+      if (verifyRes?.status === 'success' || verifyRes?.status === 'already_processed') {
+        Alert.alert(
+          '🎉 Payment confirmed!',
+          'Driver accepted and shipment created.',
+          [{ text: 'My Loads', onPress: () => router.replace('/(driver)/(tabs)/my-loads') }],
+        );
+      } else {
+        Alert.alert('Payment incomplete', lastVerifyError);
+        intervalRef.current = setInterval(() => fetchBids(true), 2000);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Something went wrong.');
+      intervalRef.current = setInterval(() => fetchBids(true), 2000);
+    } finally {
+      setPayingBidId(null);
+    }
+  };
+
+  if (loading && bids.length === 0) {
+    return <View style={styles.center}><ActivityIndicator /></View>;
+  }
+  if (error && bids.length === 0 && !load) {
+    return <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>;
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); fetchBids(true); }}
+        />
+      }>
+      <View style={styles.headerRow}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>← Back</Text>
+        </Pressable>
+        <View style={styles.liveIndicator}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>Live</Text>
+        </View>
+      </View>
+
+      {load && (
+        <View style={styles.mapContainer}>
+          {process.env.EXPO_PUBLIC_GMAPSAPI ? (
+            <WebView
+              source={{
+                html: (() => {
+                  const embedUrl = `https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(process.env.EXPO_PUBLIC_GMAPSAPI!)}&origin=${encodeURIComponent(load.pickupAddress)}&destination=${encodeURIComponent(load.deliveryAddress)}`;
+                  return `<!DOCTYPE html><html style="height:${MAP_HEIGHT}px;width:100%;margin:0;padding:0;overflow:hidden"><head><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/></head><body style="margin:0;padding:0;height:${MAP_HEIGHT}px;min-height:${MAP_HEIGHT}px;width:100%;min-width:100%;position:relative;overflow:hidden;box-sizing:border-box"><iframe style="position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${embedUrl.replace(/"/g, '&quot;')}"></iframe></body></html>`;
+                })(),
+              }}
+              style={styles.mapWebView}
+              scrollEnabled={false}
+              nestedScrollEnabled
+              originWhitelist={['*']}
+            />
+          ) : (
+            <View style={styles.mapPlaceholder}>
+              <Text style={styles.mapPlaceholderText}>Map</Text>
+              <Text style={styles.mapPlaceholderSubtext}>Add EXPO_PUBLIC_GMAPSAPI to show route</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      <Text style={styles.title}>Driver bids</Text>
+      <Text style={styles.subtitle}>
+        {bids.length === 0
+          ? 'Waiting for drivers to apply…'
+          : `${bids.filter((b) => b.status === 'pending').length} pending bid${bids.filter((b) => b.status === 'pending').length !== 1 ? 's' : ''}`}
+      </Text>
+
+      {bids.length === 0 && (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>No bids yet. This page auto-refreshes.</Text>
+        </View>
+      )}
+
+      {bids.map((bid) => {
+        const name =
+          bid.driver.firstName || bid.driver.lastName
+            ? `${bid.driver.firstName ?? ''} ${bid.driver.lastName ?? ''}`.trim()
+            : bid.driver.email;
+        const isPending = bid.status === 'pending';
+        const isAccepted = bid.status === 'accepted';
+        const isPaying = payingBidId === bid.id;
+
+        return (
+          <View
+            key={bid.id}
+            style={[
+              styles.card,
+              isAccepted && styles.cardAccepted,
+              bid.status === 'rejected' && styles.cardRejected,
+            ]}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.name}>{name}</Text>
+              {!isPending && (
+                <View style={[styles.statusPill, isAccepted ? styles.pillAccepted : styles.pillRejected]}>
+                  <Text style={[styles.pillText, isAccepted ? styles.pillTextAccepted : styles.pillTextRejected]}>
+                    {isAccepted ? 'Accepted' : 'Rejected'}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.meta}>
+              {bid.driver.truckType || 'Truck type not set'} • {bid.driver.phoneNumber || 'No phone'}
+            </Text>
+            <Text style={styles.offer}>
+              Offer: {bid.offerAmount != null ? `₦${bid.offerAmount.toLocaleString()}` : 'No amount'}
+            </Text>
+            {isPending && (
+              <View style={styles.actionsRow}>
+                <Pressable
+                  style={({ pressed }) => [styles.rejectButton, pressed && { opacity: 0.8 }, (!!actingId || !!payingBidId) && { opacity: 0.5 }]}
+                  onPress={() => handleReject(bid.id)}
+                  disabled={!!actingId || !!payingBidId}>
+                  <Text style={styles.rejectButtonText}>
+                    {actingId === bid.id ? 'Rejecting…' : 'Reject'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.acceptButton, pressed && { opacity: 0.8 }, (!!actingId || !!payingBidId) && { opacity: 0.5 }]}
+                  onPress={() => handleAccept(bid.id)}
+                  disabled={!!actingId || !!payingBidId}>
+                  {isPaying ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.acceptButtonText}>Accept & Pay ₦{(bid.offerAmount ?? 0).toLocaleString()}</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  content: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40, gap: 14 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  backBtn: { paddingVertical: 4 },
+  backBtnText: { fontSize: 14, color: '#111827', fontWeight: '600' },
+  liveIndicator: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#f0fdf4', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#16a34a' },
+  liveText: { fontSize: 12, fontWeight: '700', color: '#16a34a' },
+  title: { fontSize: 22, fontWeight: '700', color: '#111827' },
+  subtitle: { fontSize: 14, color: '#6B7280' },
+  emptyBox: { paddingVertical: 40, alignItems: 'center' },
+  emptyText: { color: '#6B7280', fontSize: 14 },
+  errorText: { color: '#b91c1c' },
+  card: { borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, backgroundColor: '#F9FAFB', gap: 5 },
+  cardAccepted: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
+  cardRejected: { opacity: 0.5 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  name: { fontSize: 16, fontWeight: '600', color: '#111827', flex: 1 },
+  statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  pillAccepted: { backgroundColor: '#dcfce7' },
+  pillRejected: { backgroundColor: '#fee2e2' },
+  pillText: { fontSize: 12, fontWeight: '600' },
+  pillTextAccepted: { color: '#16a34a' },
+  pillTextRejected: { color: '#dc2626' },
+  meta: { fontSize: 13, color: '#6B7280' },
+  offer: { fontSize: 14, color: '#111827', marginTop: 2 },
+  actionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 },
+  rejectButton: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, borderWidth: 1, borderColor: '#F97316', backgroundColor: '#ffffff' },
+  rejectButtonText: { color: '#F97316', fontSize: 13, fontWeight: '600' },
+  acceptButton: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: '#16a34a', minWidth: 140, alignItems: 'center' },
+  acceptButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  mapContainer: { height: MAP_HEIGHT, width: SCREEN_WIDTH, marginLeft: -24, borderRadius: 0, overflow: 'hidden', backgroundColor: '#E5E7EB' },
+  mapWebView: { width: SCREEN_WIDTH, height: MAP_HEIGHT },
+  mapPlaceholder: { width: SCREEN_WIDTH, height: MAP_HEIGHT, justifyContent: 'center', alignItems: 'center', backgroundColor: '#E5E7EB', padding: 16 },
+  mapPlaceholderText: { fontSize: 18, fontWeight: '600', color: '#6B7280' },
+  mapPlaceholderSubtext: { fontSize: 11, color: '#9CA3AF', marginTop: 4, textAlign: 'center' },
+});

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,10 +15,9 @@ type DriverProfile = {
   licenseNumber: string;
 };
 
-type Truck = {
-  id: string;
-  name: string;
-};
+type Truck = { id: string; name: string };
+
+type LoadStats = { total: number; active: number };
 
 export default function DriverProfileScreen() {
   const { user, token, signOut } = useAuth();
@@ -30,6 +29,7 @@ export default function DriverProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [trucks, setTrucks] = useState<Truck[]>([]);
+  const [loadStats, setLoadStats] = useState<LoadStats>({ total: 0, active: 0 });
 
   useEffect(() => {
     let isMounted = true;
@@ -82,6 +82,18 @@ export default function DriverProfileScreen() {
         setTrucks(data);
       } catch {
         // ignore, fallback to free text
+      }
+
+      // 4. Fetch load stats (driver acting as shipper)
+      try {
+        const loadsData = await apiFetch<{ id: string; status: string }[]>('/api/loads', { method: 'GET', token });
+        if (!isMounted) return;
+        setLoadStats({
+          total: loadsData.length,
+          active: loadsData.filter((l) => l.status === 'available').length,
+        });
+      } catch {
+        // ignore
       }
     };
 
@@ -164,6 +176,33 @@ export default function DriverProfileScreen() {
             style={({ pressed }) => [styles.editButton, pressed && { opacity: 0.85 }]}
             onPress={() => setEditing(true)}>
             <Text style={styles.editButtonText}>Edit details</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* My Posted Loads section */}
+      {!editing && (
+        <View style={styles.loadsSection}>
+          <View style={styles.loadsSectionHeader}>
+            <Text style={styles.loadsSectionTitle}>My posted loads</Text>
+            <Pressable onPress={() => router.push('/(driver)/(tabs)/my-loads')}>
+              <Text style={styles.loadsSectionLink}>View all</Text>
+            </Pressable>
+          </View>
+          <View style={styles.loadsStatsRow}>
+            <View style={styles.loadsStat}>
+              <Text style={styles.loadsStatValue}>{loadStats.active}</Text>
+              <Text style={styles.loadsStatLabel}>Live</Text>
+            </View>
+            <View style={styles.loadsStat}>
+              <Text style={styles.loadsStatValue}>{loadStats.total}</Text>
+              <Text style={styles.loadsStatLabel}>Total posted</Text>
+            </View>
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.postLoadBtn, pressed && { opacity: 0.85 }]}
+            onPress={() => router.push('/(driver)/create-load')}>
+            <Text style={styles.postLoadBtnText}>+ Post a new load</Text>
           </Pressable>
         </View>
       )}
@@ -341,4 +380,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#111827',
   },
   editButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
+  loadsSection: { borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, backgroundColor: '#F9FAFB', gap: 10 },
+  loadsSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  loadsSectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  loadsSectionLink: { fontSize: 13, color: '#007AFF', fontWeight: '500' },
+  loadsStatsRow: { flexDirection: 'row', gap: 12 },
+  loadsStat: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#ffffff', paddingVertical: 10, paddingHorizontal: 12 },
+  loadsStatValue: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  loadsStatLabel: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  postLoadBtn: { borderRadius: 8, paddingVertical: 10, backgroundColor: '#111827', alignItems: 'center' },
+  postLoadBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
 });

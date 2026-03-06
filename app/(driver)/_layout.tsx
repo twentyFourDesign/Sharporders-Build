@@ -5,6 +5,8 @@ export default function DriverLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="apply-load/[id]" />
+      <Stack.Screen name="create-load" />
+      <Stack.Screen name="load-bids/[id]" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="profile" />
     </Stack>

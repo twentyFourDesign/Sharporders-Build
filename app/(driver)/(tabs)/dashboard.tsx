@@ -21,21 +21,34 @@ type Shipment = {
   status: string;
 };
 
+type Load = {
+  id: string;
+  pickupAddress: string;
+  deliveryAddress: string;
+  fareOffer: number;
+  status: string;
+};
+
 export default function DriverDashboardScreen() {
   const { user, token } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchShipments = useCallback(
+  const fetchData = useCallback(
     async () => {
       if (!token) { setLoading(false); return; }
       try {
-        const data = await apiFetch<Shipment[]>('/api/shipments', { method: 'GET', token });
-        setShipments(data);
+        const [shipmentsData, loadsData] = await Promise.all([
+          apiFetch<Shipment[]>('/api/shipments', { method: 'GET', token }),
+          apiFetch<Load[]>('/api/loads', { method: 'GET', token }),
+        ]);
+        setShipments(shipmentsData);
+        setLoads(loadsData);
         setError(null);
       } catch (err: any) {
-        setError(err.message ?? 'Failed to load shipments');
+        setError(err.message ?? 'Failed to load data');
       } finally {
         setLoading(false);
       }
@@ -43,11 +56,12 @@ export default function DriverDashboardScreen() {
     [token],
   );
 
-  useEffect(() => { fetchShipments(); }, [fetchShipments]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const total = shipments.length;
   const active = shipments.filter((s) => s.status !== 'delivered' && s.status !== 'cancelled').length;
   const delivered = shipments.filter((s) => s.status === 'delivered').length;
+  const activeLoads = loads.filter((l) => l.status === 'available').length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -56,23 +70,24 @@ export default function DriverDashboardScreen() {
         <Text style={styles.email}>{user?.email}</Text>
       </View>
 
-      {/* Primary actions */}
+      {/* Driver actions */}
+      <Text style={styles.sectionLabel}>As a driver</Text>
       <View style={styles.actionsRow}>
         <Pressable
           style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
           onPress={() => router.push({ pathname: '/(driver)/(tabs)/load-board', params: { live: '1' } })}
         >
-          <Text style={styles.primaryButtonText}>Go live &amp; find loads</Text>
+          <Text style={styles.primaryButtonText}>Go live & find loads</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
-          onPress={() => router.push('/(driver)/(tabs)/load-board')}
+          onPress={() => router.push('/(driver)/(tabs)/shipments')}
         >
-          <Text style={styles.secondaryButtonText}>Open load board</Text>
+          <Text style={styles.secondaryButtonText}>My shipments</Text>
         </Pressable>
       </View>
 
-      {/* Stats cards */}
+      {/* Driver stats */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Active</Text>
@@ -88,6 +103,35 @@ export default function DriverDashboardScreen() {
         </View>
       </View>
 
+      {/* Shipper actions */}
+      <Text style={styles.sectionLabel}>As a shipper</Text>
+      <View style={styles.actionsRow}>
+        <Pressable
+          style={({ pressed }) => [styles.primaryButton, { backgroundColor: '#111827' }, pressed && styles.buttonPressed]}
+          onPress={() => router.push('/(driver)/create-load')}
+        >
+          <Text style={styles.primaryButtonText}>+ Post a load</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
+          onPress={() => router.push('/(driver)/(tabs)/my-loads')}
+        >
+          <Text style={styles.secondaryButtonText}>My posted loads</Text>
+        </Pressable>
+      </View>
+
+      {/* Posted loads stats */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Live loads</Text>
+          <Text style={styles.statValue}>{activeLoads}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Total posted</Text>
+          <Text style={styles.statValue}>{loads.length}</Text>
+        </View>
+      </View>
+
       {/* Recent shipments */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent shipments</Text>
@@ -99,18 +143,15 @@ export default function DriverDashboardScreen() {
       {loading && total === 0 && (
         <View style={styles.center}><ActivityIndicator /></View>
       )}
-
-      {!loading && error && total === 0 && (
+      {!loading && error && (
         <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>
       )}
-
       {!loading && !error && total === 0 && (
         <View style={styles.emptyBox}>
           <Text style={styles.emptyText}>No shipments yet.</Text>
           <Text style={styles.emptySubText}>Go live to start picking loads and earning.</Text>
         </View>
       )}
-
       {shipments.length > 0 && (
         <FlatList
           data={shipments.slice(0, 3)}
@@ -119,14 +160,39 @@ export default function DriverDashboardScreen() {
           scrollEnabled={false}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <Text style={styles.cardRoute}>
-                {item.pickupAddress} → {item.deliveryAddress}
-              </Text>
+              <Text style={styles.cardRoute}>{item.pickupAddress} → {item.deliveryAddress}</Text>
               <Text style={styles.cardMeta}>₦{item.fareOffer.toLocaleString()}</Text>
               <Text style={styles.cardStatus}>{item.status}</Text>
             </View>
           )}
         />
+      )}
+
+      {/* Recent posted loads */}
+      {loads.length > 0 && (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent posted loads</Text>
+            <Pressable onPress={() => router.push('/(driver)/(tabs)/my-loads')}>
+              <Text style={styles.sectionLink}>View all</Text>
+            </Pressable>
+          </View>
+          <FlatList
+            data={loads.slice(0, 3)}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            scrollEnabled={false}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <Text style={styles.cardRoute}>{item.pickupAddress} → {item.deliveryAddress}</Text>
+                <Text style={styles.cardMeta}>₦{item.fareOffer.toLocaleString()}</Text>
+                <Text style={[styles.cardStatus, { color: item.status === 'available' ? '#111827' : '#6B7280' }]}>
+                  {item.status === 'available' ? 'Live' : item.status}
+                </Text>
+              </View>
+            )}
+          />
+        </>
       )}
     </ScrollView>
   );
@@ -181,6 +247,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 8 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
   sectionLink: { fontSize: 13, color: '#007AFF', fontWeight: '500' },
   center: { alignItems: 'center', justifyContent: 'center', marginTop: 16 },

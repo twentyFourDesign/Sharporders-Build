@@ -30,6 +30,13 @@ export default function DriverTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="my-loads"
+        options={{
+          title: 'My Loads',
+          tabBarIcon: ({ color, size }) => <Ionicons name="cube-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
