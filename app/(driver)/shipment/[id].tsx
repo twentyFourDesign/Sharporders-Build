@@ -438,6 +438,17 @@ export default function DriverShipmentDetailsScreen() {
           </Pressable>
         </View>
       </View>
+
+      {shipment.load?.loadImageUrl && (
+        <View style={styles.loadImageSection}>
+          <Text style={styles.sectionTitle}>Load photo</Text>
+          <Image
+            source={{ uri: shipment.load.loadImageUrl }}
+            style={styles.loadImage}
+            resizeMode="cover"
+          />
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -593,5 +604,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   locationSaveBtnText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  loadImageSection: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    gap: 10,
+  },
+  loadImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
+  },
 });
 

@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
 
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -38,6 +40,9 @@ export default function ShipperDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!token) {
@@ -60,9 +65,33 @@ export default function ShipperDashboardScreen() {
     }
   }, [token]);
 
+  const requestLocation = useCallback(async () => {
+    try {
+      setLocationLoading(true);
+      setLocationError(null);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission not granted.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setLocationCoords({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      });
+    } catch (e: any) {
+      setLocationError(e?.message ?? 'Could not fetch location.');
+    } finally {
+      setLocationLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    requestLocation();
+  }, [fetchData, requestLocation]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -178,6 +207,62 @@ export default function ShipperDashboardScreen() {
           )}
         />
       )}
+
+      {/* My current location map */}
+      <View style={styles.mapSection}>
+        <View style={styles.mapHeaderRow}>
+          <Text style={styles.sectionTitle}>My current location</Text>
+          <Pressable
+            style={styles.mapRefreshBtn}
+            onPress={requestLocation}
+            disabled={locationLoading}
+          >
+            <Text style={styles.mapRefreshText}>
+              {locationLoading ? 'Refreshing…' : 'Refresh'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {!process.env.EXPO_PUBLIC_GMAPSAPI ? (
+          <Text style={styles.mapHint}>
+            Add EXPO_PUBLIC_GMAPSAPI in your app config to show the map.
+          </Text>
+        ) : locationError ? (
+          <Text style={styles.mapError}>{locationError}</Text>
+        ) : !locationCoords ? (
+          <View style={styles.mapLoadingRow}>
+            <ActivityIndicator size="small" color="#6B7280" />
+            <Text style={styles.mapHint}>Getting your current location…</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.mapContainer}>
+              <WebView
+                source={{
+                  html: (() => {
+                    const key = process.env.EXPO_PUBLIC_GMAPSAPI!;
+                    const { latitude, longitude } = locationCoords;
+                    const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${encodeURIComponent(
+                      key,
+                    )}&center=${latitude},${longitude}&zoom=14&maptype=roadmap`;
+                    return `<!DOCTYPE html><html style="height:220px;width:100%;margin:0;padding:0;overflow:hidden"><head><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/></head><body style="margin:0;padding:0;height:220px;min-height:220px;width:100%;min-width:100%;position:relative;overflow:hidden;box-sizing:border-box"><iframe style="position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${embedUrl.replace(
+                      /"/g,
+                      '&quot;',
+                    )}"></iframe></body></html>`;
+                  })(),
+                }}
+                style={styles.mapWebView}
+                scrollEnabled={false}
+                nestedScrollEnabled
+                originWhitelist={['*']}
+              />
+            </View>
+            <Text style={styles.mapCaption}>
+              Showing approximate live location from this device.
+            </Text>
+          </>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -261,6 +346,50 @@ const styles = StyleSheet.create({
   cardRoute: { fontSize: 14, fontWeight: '600', color: '#111827' },
   cardMeta: { fontSize: 13, color: '#6B7280' },
   cardStatus: { fontSize: 12, color: '#007AFF', fontWeight: '600' },
+  mapSection: {
+    marginTop: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    gap: 8,
+  },
+  mapHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mapContainer: {
+    height: 220,
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#E5E7EB',
+    marginTop: 4,
+  },
+  mapWebView: {
+    width: '100%',
+    height: 220,
+  },
+  mapHint: { fontSize: 12, color: '#6B7280' },
+  mapError: { fontSize: 12, color: '#b91c1c' },
+  mapLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  mapRefreshBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#ffffff',
+  },
+  mapRefreshText: { fontSize: 11, color: '#6B7280', fontWeight: '500' },
+  mapCaption: { fontSize: 11, color: '#6B7280' },
 });
 
 
