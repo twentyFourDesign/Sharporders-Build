@@ -488,16 +488,38 @@ export default function DriverProfileScreen() {
         </View>
       </View>
 
+      {/* Quick links */}
+      <View style={styles.sheet}>
+        <Pressable
+          style={styles.settingRow}
+          onPress={() => router.push('/(driver)/wallet')}>
+          <Text style={styles.settingLabel}>💰 My Wallet</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+        <View style={styles.separator} />
+        <Pressable
+          style={styles.settingRow}
+          onPress={() => router.push('/(driver)/notifications')}>
+          <Text style={styles.settingLabel}>🔔 Notification Center</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+      </View>
+
       {/* App settings */}
       <View style={styles.sheet}>
-        <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>Notifications</Text>
-          <Text
-            style={styles.settingAction}
-            onPress={() => Alert.alert('Coming soon', 'Notification settings will be available in a future update.')}>
-            Turn off
-          </Text>
-        </View>
+        <Pressable
+          style={styles.settingRow}
+          onPress={() => router.push('/(driver)/support')}>
+          <Text style={styles.settingLabel}>🎧 Support</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+        <View style={styles.separator} />
+        <Pressable
+          style={styles.settingRow}
+          onPress={() => router.push('/(driver)/about')}>
+          <Text style={styles.settingLabel}>ℹ️ About</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
         <View style={styles.separator} />
         <Pressable
           style={styles.settingRow}

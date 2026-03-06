@@ -236,6 +236,28 @@ export default function DriverApplyLoadScreen() {
         {load.truckType} • Shipper offer ₦{load.fareOffer.toLocaleString()}
       </Text>
 
+      <View style={styles.infoRow}>
+        <Text style={styles.infoPill}>134 Kg</Text>
+        <Text style={styles.infoPill}>12\"×12\"</Text>
+        <Text style={styles.infoPill}>Truck</Text>
+        <Text style={styles.infoPill}>Time —</Text>
+      </View>
+
+      <View style={styles.contactRow}>
+        <Pressable
+          style={({ pressed }) => [styles.contactBtn, pressed && { opacity: 0.85 }]}
+          onPress={() => Alert.alert('Call driver', 'This action will be available soon.')}
+        >
+          <Text style={styles.contactBtnText}>Call driver</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.contactBtn, pressed && { opacity: 0.85 }]}
+          onPress={() => Alert.alert('Message driver', 'This action will be available soon.')}
+        >
+          <Text style={styles.contactBtnText}>Message</Text>
+        </Pressable>
+      </View>
+
       {canEditPending ? (
         <View style={styles.form}>
           <View style={styles.statusBox}>
@@ -253,6 +275,36 @@ export default function DriverApplyLoadScreen() {
             keyboardType="numeric"
             editable={!submitting && !cancelling}
           />
+
+          {/* Suggested offers */}
+          <View style={styles.suggestionsRow}>
+            {[0.9, 1, 1.1, 1.2].map((mult) => {
+              const base = load.fareOffer || 0;
+              const value = Math.round(base * mult);
+              const selected = Number(offer) === value;
+              return (
+                <Pressable
+                  key={mult}
+                  style={({ pressed }) => [
+                    styles.suggestionChip,
+                    selected && styles.suggestionChipSelected,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                  onPress={() => setOffer(String(value))}
+                >
+                  <Text
+                    style={
+                      selected
+                        ? styles.suggestionChipTextSelected
+                        : styles.suggestionChipText
+                    }
+                  >
+                    ₦{value.toLocaleString()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <View style={styles.actionsRow}>
             <Pressable
@@ -312,6 +364,34 @@ export default function DriverApplyLoadScreen() {
             keyboardType="numeric"
             editable={!submitting}
           />
+          <View style={styles.suggestionsRow}>
+            {[0.9, 1, 1.1, 1.2].map((mult) => {
+              const base = load.fareOffer || 0;
+              const value = Math.round(base * mult);
+              const selected = Number(offer) === value;
+              return (
+                <Pressable
+                  key={mult}
+                  style={({ pressed }) => [
+                    styles.suggestionChip,
+                    selected && styles.suggestionChipSelected,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                  onPress={() => setOffer(String(value))}
+                >
+                  <Text
+                    style={
+                      selected
+                        ? styles.suggestionChipTextSelected
+                        : styles.suggestionChipText
+                    }
+                  >
+                    ₦{value.toLocaleString()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <Pressable
             style={({ pressed }) => [
               styles.submitBtn,
@@ -355,6 +435,35 @@ const styles = StyleSheet.create({
   routeText: { fontSize: 15, fontWeight: '600', color: '#111827', marginTop: 16 },
   metaText: { fontSize: 13, color: '#6B7280', marginTop: 4 },
   metaTextSmall: { fontSize: 12, color: '#6B7280', marginTop: 6 },
+  infoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  infoPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#F3F4F6',
+    fontSize: 11,
+    color: '#4B5563',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  contactBtn: {
+    flex: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  contactBtnText: { fontSize: 13, color: '#007AFF', fontWeight: '600' },
   form: { marginTop: 24, gap: 12 },
   label: { fontSize: 14, fontWeight: '600', color: '#111827' },
   input: {
@@ -393,4 +502,32 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelBtnText: { color: '#DC2626', fontSize: 16, fontWeight: '700' },
+  suggestionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  suggestionChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#ffffff',
+  },
+  suggestionChipSelected: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  suggestionChipText: {
+    fontSize: 12,
+    color: '#111827',
+    fontWeight: '500',
+  },
+  suggestionChipTextSelected: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
 });

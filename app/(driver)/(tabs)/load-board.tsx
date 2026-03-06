@@ -7,8 +7,10 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, router } from 'expo-router';
 
@@ -41,6 +43,7 @@ export default function DriverLoadBoardScreen() {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
 
   const fetchLoads = useCallback(
     async (silent = false) => {
@@ -129,6 +132,13 @@ export default function DriverLoadBoardScreen() {
     setLoads([]);
     setError(null);
   };
+
+  const filteredLoads = loads.filter((item) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = `${item.pickupAddress} ${item.deliveryAddress} ${item.truckType}`.toLowerCase();
+    return haystack.includes(q);
+  });
 
   const openApplyScreen = (item: Load) => {
     router.push(`/(driver)/apply-load/${item.id}?offer=${encodeURIComponent(String(item.fareOffer ?? ''))}`);
@@ -242,9 +252,9 @@ export default function DriverLoadBoardScreen() {
   // ── LIVE STATE ──
   return (
     <View style={styles.container}>
-      {/* Header with live indicator + stop button */}
+      {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Load board</Text>
+        <Text style={styles.title}>Load Board</Text>
         <View style={styles.headerRight}>
           <View style={styles.livePill}>
             <View style={styles.liveDot} />
@@ -258,15 +268,35 @@ export default function DriverLoadBoardScreen() {
         </View>
       </View>
 
-      {fetching && loads.length === 0 && (
+      {/* Search + filter */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchInputWrapper}>
+          <Ionicons name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 6 }} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search Load Board"
+            placeholderTextColor="#9CA3AF"
+            style={styles.searchInput}
+          />
+        </View>
+        <Pressable style={styles.iconButton}>
+          <Ionicons name="options-outline" size={20} color="#111827" />
+        </Pressable>
+        <Pressable style={styles.iconButton}>
+          <Ionicons name="filter-outline" size={20} color="#111827" />
+        </Pressable>
+      </View>
+
+      {fetching && filteredLoads.length === 0 && (
         <View style={styles.center}><ActivityIndicator /></View>
       )}
 
-      {!fetching && error && loads.length === 0 && (
+      {!fetching && error && filteredLoads.length === 0 && (
         <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>
       )}
 
-      {!fetching && !error && loads.length === 0 && (
+      {!fetching && !error && filteredLoads.length === 0 && (
         <View style={styles.center}>
           <ActivityIndicator size="small" color="#9CA3AF" style={{ marginBottom: 10 }} />
           <Text style={styles.waitingText}>Waiting for available loads…</Text>
@@ -274,9 +304,9 @@ export default function DriverLoadBoardScreen() {
         </View>
       )}
 
-      {loads.length > 0 && (
+      {filteredLoads.length > 0 && (
         <FlatList
-          data={loads}
+          data={filteredLoads}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -296,16 +326,38 @@ export default function DriverLoadBoardScreen() {
                   resizeMode="cover"
                 />
               ) : null}
-              <Text style={styles.cardRoute}>
-                {item.pickupAddress} → {item.deliveryAddress}
-              </Text>
-              <Text style={styles.cardMeta}>
-                {item.truckType} • ₦{item.fareOffer.toLocaleString()}
-              </Text>
-              <Text style={styles.cardDescription} numberOfLines={2}>
-                {item.loadDescription}
-              </Text>
-              {renderBidState(item)}
+              <View style={styles.cardContentRow}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={styles.cardRoute} numberOfLines={1}>
+                    {item.pickupAddress} → {item.deliveryAddress}
+                  </Text>
+                  <Text style={styles.cardMetaRow}>
+                    <Text style={styles.cardMetaDot}>• </Text>
+                    <Text style={styles.cardMeta}>{item.truckType}</Text>
+                  </Text>
+                  <Text style={styles.cardDescription} numberOfLines={2}>
+                    {item.loadDescription}
+                  </Text>
+                  <View style={styles.cardFooterRow}>
+                    <View>
+                      <Text style={styles.priceLabel}>Offer</Text>
+                      <Text style={styles.priceText}>
+                        ₦{item.fareOffer.toLocaleString()}
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.viewDetailsBtn,
+                        pressed && { opacity: 0.9 },
+                      ]}
+                      onPress={() => openApplyScreen(item)}
+                    >
+                      <Text style={styles.viewDetailsText}>View details</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+              <View style={{ marginTop: 8 }}>{renderBidState(item)}</View>
             </View>
           )}
         />
@@ -320,6 +372,38 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 14,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   livePill: {
@@ -385,9 +469,29 @@ const styles = StyleSheet.create({
   },
   cardAccepted: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
   cardRejected: { opacity: 0.45 },
+  cardContentRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   cardRoute: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  cardMetaRow: { fontSize: 13, color: '#6B7280' },
+  cardMetaDot: { fontSize: 13, color: '#9CA3AF' },
   cardMeta: { fontSize: 13, color: '#6B7280' },
   cardDescription: { fontSize: 13, color: '#4B5563', marginBottom: 2 },
+  cardFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  priceLabel: { fontSize: 12, color: '#6B7280' },
+  priceText: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  viewDetailsBtn: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    backgroundColor: '#ffffff',
+  },
+  viewDetailsText: { fontSize: 12, fontWeight: '600', color: '#007AFF' },
   applyButton: {
     alignSelf: 'flex-start',
     borderRadius: 8,

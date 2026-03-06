@@ -10,6 +10,10 @@ export default function DriverLayout() {
       <Stack.Screen name="shipment/[id]" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="wallet" />
+      <Stack.Screen name="notifications" />
+      <Stack.Screen name="support" />
+      <Stack.Screen name="about" />
     </Stack>
   );
 }
