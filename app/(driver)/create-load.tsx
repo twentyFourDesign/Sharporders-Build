@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 import { apiFetch, uploadLoadImage } from '@/lib/api';
@@ -22,8 +22,9 @@ type PlaceSuggestion = { id: string; label: string; mapsUrl: string };
 
 export default function DriverCreateLoadScreen() {
   const { token } = useAuth();
-  const [pickupAddress, setPickupAddress] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const params = useLocalSearchParams<{ pickup?: string; delivery?: string }>();
+  const [pickupAddress, setPickupAddress] = useState(params.pickup ?? '');
+  const [deliveryAddress, setDeliveryAddress] = useState(params.delivery ?? '');
   const [truckType, setTruckType] = useState('');
   const [description, setDescription] = useState('');
   const [recipientName, setRecipientName] = useState('');
@@ -389,12 +390,12 @@ const styles = StyleSheet.create({
   suggestionsBox: { marginTop: 4, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#ffffff' },
   suggestionItem: { paddingHorizontal: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   suggestionText: { fontSize: 13, color: '#374151' },
-  button: { marginTop: 8, borderRadius: 999, backgroundColor: '#111827', paddingVertical: 12, alignItems: 'center' },
+  button: { marginTop: 8, borderRadius: 999, backgroundColor: '#007AFF', paddingVertical: 12, alignItems: 'center' },
   buttonPressed: { opacity: 0.9 },
   buttonText: { color: '#ffffff', fontWeight: '600', fontSize: 15 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderRadius: 999, borderWidth: 1, borderColor: '#D1D5DB', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#ffffff' },
-  chipSelected: { backgroundColor: '#111827', borderColor: '#111827' },
+  chipSelected: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
   chipPressed: { opacity: 0.9 },
   chipText: { fontSize: 13, color: '#111827' },
   chipTextSelected: { fontSize: 13, color: '#ffffff', fontWeight: '500' },

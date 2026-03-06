@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 8,
     borderRadius: 999,
-    backgroundColor: '#111827',
+    backgroundColor: '#007AFF',
     paddingVertical: 12,
     alignItems: 'center',
   },
@@ -520,8 +520,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   chipSelected: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
   chipPressed: {
     opacity: 0.9,

@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -34,6 +35,7 @@ export default function DriverLoadBoardScreen() {
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchLoads = useCallback(
     async (silent = false) => {
@@ -73,6 +75,13 @@ export default function DriverLoadBoardScreen() {
       }
     };
   }, [isLive, fetchLoads]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!token) return;
+    setRefreshing(true);
+    await fetchLoads(true);
+    setRefreshing(false);
+  }, [token, fetchLoads]);
 
   const handleGoLive = () => {
     setLoads([]);
@@ -196,6 +205,9 @@ export default function DriverLoadBoardScreen() {
           data={loads}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
           renderItem={({ item }) => (
             <View
               style={[
@@ -279,7 +291,7 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },
   postLoadBtn: {
     borderRadius: 8, paddingHorizontal: 32, paddingVertical: 14,
-    backgroundColor: '#111827', borderWidth: 0,
+    backgroundColor: '#007AFF', borderWidth: 0,
   },
   postLoadBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
   postLoadSubtext: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },

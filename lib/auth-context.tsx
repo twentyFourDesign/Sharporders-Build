@@ -9,6 +9,7 @@ type AuthUser = {
   id: string;
   email: string;
   role: UserRole;
+  profilePhotoUrl?: string | null;
 };
 
 type AuthContextValue = {

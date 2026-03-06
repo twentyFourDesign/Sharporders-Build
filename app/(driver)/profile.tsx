@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/lib/auth-context';
-import { apiFetch } from '@/lib/api';
+import * as ImagePicker from 'expo-image-picker';
+import { apiFetch, uploadProfileImage } from '@/lib/api';
 
 const CACHE_KEY = 'profile_driver';
 
@@ -13,6 +14,7 @@ type DriverProfile = {
   phoneNumber: string;
   truckType: string;
   licenseNumber: string;
+  profilePhotoUrl: string | null;
 };
 
 type Truck = { id: string; name: string };
@@ -30,6 +32,9 @@ export default function DriverProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [trucks, setTrucks] = useState<Truck[]>([]);
   const [loadStats, setLoadStats] = useState<LoadStats>({ total: 0, active: 0 });
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [localImageUri, setLocalImageUri] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -47,6 +52,7 @@ export default function DriverProfileScreen() {
           setPhoneNumber(cached.phoneNumber ?? '');
           setTruckType(cached.truckType ?? '');
           setLicenseNumber(cached.licenseNumber ?? '');
+          setProfilePhotoUrl(cached.profilePhotoUrl ?? null);
         }
       } catch { /* ignore */ }
 
@@ -58,6 +64,7 @@ export default function DriverProfileScreen() {
           phoneNumber: string | null;
           truckType: string | null;
           licenseNumber: string | null;
+          profilePhotoUrl?: string | null;
         }>('/api/me', { method: 'GET', token });
         if (!isMounted) return;
         const fresh: DriverProfile = {
@@ -66,12 +73,14 @@ export default function DriverProfileScreen() {
           phoneNumber: me.phoneNumber ?? '',
           truckType: me.truckType ?? '',
           licenseNumber: me.licenseNumber ?? '',
+          profilePhotoUrl: me.profilePhotoUrl ?? null,
         };
         setFirstName(fresh.firstName);
         setLastName(fresh.lastName);
         setPhoneNumber(fresh.phoneNumber);
         setTruckType(fresh.truckType);
         setLicenseNumber(fresh.licenseNumber);
+        setProfilePhotoUrl(fresh.profilePhotoUrl);
         await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
       } catch { /* ignore */ }
 
@@ -100,6 +109,37 @@ export default function DriverProfileScreen() {
     loadProfile();
     return () => { isMounted = false; };
   }, [token]);
+
+  const handlePickImage = async () => {
+    if (!token) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow access to photos to set your profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.9,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setLocalImageUri(asset.uri);
+    setImageUploading(true);
+    try {
+      const { url } = await uploadProfileImage(
+        { uri: asset.uri, type: asset.mimeType ?? 'image/jpeg', name: 'avatar.jpg' },
+        token,
+      );
+      setProfilePhotoUrl(url);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message ?? 'Could not upload image.');
+      setLocalImageUri(null);
+    } finally {
+      setImageUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!token) return;
@@ -149,9 +189,23 @@ export default function DriverProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.headerTitleBlock}>
           <Text style={styles.title}>Driver profile</Text>
           <Text style={styles.subTitle}>{user?.email}</Text>
+        </View>
+        <View style={styles.avatarWrapper}>
+          {profilePhotoUrl || localImageUri ? (
+            <Image
+              source={{ uri: profilePhotoUrl ?? localImageUri ?? undefined }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitial}>
+                {user?.email?.[0]?.toUpperCase() ?? 'D'}
+              </Text>
+            </View>
+          )}
         </View>
         <Pressable
           style={({ pressed }) => [styles.logoutButton, pressed && { opacity: 0.8 }]}
@@ -162,6 +216,15 @@ export default function DriverProfileScreen() {
 
       {!editing && (
         <View style={styles.summaryCard}>
+          <Pressable
+            style={({ pressed }) => [styles.avatarButton, pressed && { opacity: 0.85 }]}
+            onPress={handlePickImage}
+            disabled={imageUploading}
+          >
+            <Text style={styles.avatarButtonText}>
+              {profilePhotoUrl ? (imageUploading ? 'Updating photo…' : 'Change photo') : (imageUploading ? 'Uploading…' : 'Add profile photo')}
+            </Text>
+          </Pressable>
           <Text style={styles.summaryLabel}>Name</Text>
           <Text style={styles.summaryValue}>
             {firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Not set'}
@@ -311,9 +374,21 @@ export default function DriverProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
   content: { paddingHorizontal: 24, paddingTop: 80, paddingBottom: 40, gap: 24 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerRow: { flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 12 },
+  headerTitleBlock: { alignItems: 'center', gap: 4 },
   title: { fontSize: 26, fontWeight: '700', color: '#111827' },
   subTitle: { fontSize: 14, color: '#6B7280' },
+  avatarWrapper: { marginLeft: 12 },
+  avatar: { width: 48, height: 48, borderRadius: 24 },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: { fontSize: 18, fontWeight: '700', color: '#4B5563' },
   summaryCard: {
     padding: 16, borderRadius: 16, borderWidth: 1,
     borderColor: '#E5E7EB', backgroundColor: '#F9FAFB', gap: 8,
@@ -343,8 +418,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   chipSelected: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
   chipPressed: {
     opacity: 0.9,
@@ -359,7 +434,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   button: {
-    flex: 1, borderRadius: 999, backgroundColor: '#111827',
+    flex: 1, borderRadius: 999, backgroundColor: '#007AFF',
     paddingVertical: 12, alignItems: 'center',
   },
   buttonText: { color: '#ffffff', fontWeight: '600', fontSize: 15 },
@@ -377,7 +452,7 @@ const styles = StyleSheet.create({
   logoutButtonText: { color: '#b91c1c', fontSize: 13, fontWeight: '500' },
   editButton: {
     alignSelf: 'flex-start', marginTop: 8, borderRadius: 999,
-    paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#111827',
+    paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#007AFF',
   },
   editButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
   loadsSection: { borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, backgroundColor: '#F9FAFB', gap: 10 },
@@ -389,5 +464,17 @@ const styles = StyleSheet.create({
   loadsStatValue: { fontSize: 20, fontWeight: '700', color: '#111827' },
   loadsStatLabel: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   postLoadBtn: { borderRadius: 8, paddingVertical: 10, backgroundColor: '#111827', alignItems: 'center' },
+  postLoadBtn: { borderRadius: 8, paddingVertical: 10, backgroundColor: '#007AFF', alignItems: 'center' },
   postLoadBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
+  avatarButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#ffffff',
+    marginBottom: 8,
+  },
+  avatarButtonText: { fontSize: 12, color: '#111827', fontWeight: '500' },
 });

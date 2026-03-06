@@ -4,6 +4,7 @@ import {
   Alert,
   Dimensions,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -71,6 +72,14 @@ export default function DriverApplyLoadScreen() {
     fetchLoad();
   }, [fetchLoad]);
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchLoad();
+    setRefreshing(false);
+  }, [fetchLoad]);
+
   const handlePlaceBid = async () => {
     if (!token) return;
     const amount = Number(offer);
@@ -123,7 +132,10 @@ export default function DriverApplyLoadScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled">
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }>
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Back</Text>

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,6 +37,7 @@ export default function DriverDashboardScreen() {
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(
     async () => {
@@ -63,11 +66,35 @@ export default function DriverDashboardScreen() {
   const delivered = shipments.filter((s) => s.status === 'delivered').length;
   const activeLoads = loads.filter((l) => l.status === 'available').length;
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }, [fetchData]);
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }>
       <View style={styles.header}>
-        <Text style={styles.hello}>Welcome back</Text>
-        <Text style={styles.email}>{user?.email}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.hello}>Welcome back</Text>
+          <Text style={styles.email}>{user?.email}</Text>
+        </View>
+        <View style={styles.avatarWrapper}>
+          {user?.profilePhotoUrl ? (
+            <Image source={{ uri: user.profilePhotoUrl }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitial}>
+                {user?.email?.[0]?.toUpperCase() ?? 'D'}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Driver actions */}
@@ -107,7 +134,7 @@ export default function DriverDashboardScreen() {
       <Text style={styles.sectionLabel}>As a shipper</Text>
       <View style={styles.actionsRow}>
         <Pressable
-          style={({ pressed }) => [styles.primaryButton, { backgroundColor: '#111827' }, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
           onPress={() => router.push('/(driver)/create-load')}
         >
           <Text style={styles.primaryButtonText}>+ Post a load</Text>
@@ -201,9 +228,20 @@ export default function DriverDashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
   content: { paddingHorizontal: 24, paddingTop: 80, paddingBottom: 32, gap: 20 },
-  header: { gap: 4 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   hello: { fontSize: 24, fontWeight: '700', color: '#111827' },
   email: { fontSize: 14, color: '#6B7280' },
+  avatarWrapper: { marginLeft: 12 },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: { fontSize: 16, fontWeight: '700', color: '#4B5563' },
   actionsRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   primaryButton: {
     flex: 1,

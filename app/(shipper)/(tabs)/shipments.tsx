@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Text,
   View,
+  Pressable,
+  Alert,
 } from 'react-native';
 
 import { apiFetch } from '@/lib/api';
@@ -20,6 +22,7 @@ type Shipment = {
   status: string;
   currentLocation: string | null;
   createdAt: string;
+  driverRating: number | null;
   load: {
     truckType: string;
     loadDescription: string;
@@ -59,6 +62,7 @@ export default function ShipperShipmentsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ratingShipmentId, setRatingShipmentId] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchShipments = useCallback(
@@ -80,6 +84,34 @@ export default function ShipperShipmentsScreen() {
   );
 
   useEffect(() => { fetchShipments(); }, [fetchShipments]);
+
+  const handleRateShipment = useCallback(
+    async (shipmentId: string, rating: number) => {
+      if (!token) return;
+      if (ratingShipmentId && ratingShipmentId !== shipmentId) return;
+      try {
+        setRatingShipmentId(shipmentId);
+        const updated = await apiFetch<{ id: string; driverRating: number }>(
+          `/api/shipments/${shipmentId}/rating`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ rating }),
+            token,
+          },
+        );
+        setShipments((prev) =>
+          prev.map((s) =>
+            s.id === shipmentId ? { ...s, driverRating: updated.driverRating } : s,
+          ),
+        );
+      } catch (err: any) {
+        Alert.alert('Could not save rating', err.message ?? 'Please try again.');
+      } finally {
+        setRatingShipmentId(null);
+      }
+    },
+    [token, ratingShipmentId],
+  );
 
   // Poll every 4s so driver status updates appear in near-real-time
   useEffect(() => {
@@ -126,8 +158,10 @@ export default function ShipperShipmentsScreen() {
                 ? `${item.driver.firstName ?? ''} ${item.driver.lastName ?? ''}`.trim()
                 : 'Driver';
 
+            const showRating = item.status === 'delivered';
+
             return (
-              <View style={[styles.card, item.status === 'delivered' && styles.cardDelivered]}>
+              <View style={[styles.card, showRating && styles.cardDelivered]}>
                 {/* Status badge */}
                 <View style={[styles.badge, { backgroundColor: statusColor + '18' }]}>
                   <View style={[styles.badgeDot, { backgroundColor: statusColor }]} />
@@ -179,6 +213,38 @@ export default function ShipperShipmentsScreen() {
                     <Text style={styles.locationText}>{item.currentLocation}</Text>
                   </View>
                 )}
+
+                {showRating && (
+                  <View style={styles.ratingRow}>
+                    <Text style={styles.ratingLabel}>
+                      {item.driverRating ? 'Your rating' : 'Rate driver'}
+                    </Text>
+                    <View style={styles.starsRow}>
+                      {[1, 2, 3, 4, 5].map((star) => {
+                        const filled = (item.driverRating ?? 0) >= star;
+                        const disabled = !!ratingShipmentId && ratingShipmentId !== item.id;
+                        return (
+                          <Pressable
+                            key={star}
+                            onPress={() => handleRateShipment(item.id, star)}
+                            disabled={disabled}
+                            hitSlop={8}
+                          >
+                            <Text
+                              style={[
+                                styles.star,
+                                filled && styles.starFilled,
+                                disabled && styles.starDisabled,
+                              ]}
+                            >
+                              {filled ? '★' : '☆'}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
               </View>
             );
           }}
@@ -215,4 +281,16 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, backgroundColor: '#EFF6FF', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   locationIcon: { fontSize: 12 },
   locationText: { fontSize: 12, color: '#1D4ED8', fontWeight: '500', flex: 1 },
+  ratingRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  ratingLabel: { fontSize: 12, color: '#6B7280', marginRight: 8 },
+  starsRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  star: { fontSize: 18, color: '#D1D5DB' },
+  starFilled: { color: '#F59E0B' },
+  starDisabled: { opacity: 0.5 },
 });
