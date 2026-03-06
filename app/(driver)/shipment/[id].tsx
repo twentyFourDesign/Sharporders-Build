@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 
@@ -21,6 +22,9 @@ type Shipment = {
   pickupAddress: string;
   deliveryAddress: string;
   fareOffer: number;
+  shipperOfferAmount?: number;
+  driverBidAmount?: number | null;
+  acceptedAmount?: number | null;
   status: string;
   currentLocation: string | null;
   createdAt: string;
@@ -35,8 +39,13 @@ type Shipment = {
     deliveryMapsUrl?: string | null;
   } | null;
   shipper?: {
+    email?: string | null;
     businessName: string | null;
+    displayName?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
     phone: string | null;
+    profilePhotoUrl?: string | null;
   } | null;
 };
 
@@ -210,6 +219,21 @@ export default function DriverShipmentDetailsScreen() {
   const isDelivered = statusKey === 'delivered';
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === statusKey);
   const created = new Date(shipment.createdAt);
+  const shipperOffer =
+    shipment.shipperOfferAmount ?? shipment.fareOffer;
+  const driverBid = shipment.driverBidAmount ?? null;
+  const acceptedAmount =
+    shipment.acceptedAmount ??
+    driverBid ??
+    shipperOffer;
+  const shipperFullName = `${shipment.shipper?.firstName ?? ''} ${shipment.shipper?.lastName ?? ''}`.trim();
+  const shipperLabel =
+    (shipment.shipper?.businessName ?? '').trim() ||
+    (shipment.shipper?.displayName ?? '').trim() ||
+    shipperFullName ||
+    (shipment.shipper?.email ?? '').trim() ||
+    (shipment.shipper?.phone ?? '').trim() ||
+    'Shipper';
 
   return (
     <ScrollView
@@ -233,20 +257,31 @@ export default function DriverShipmentDetailsScreen() {
         <Text style={styles.metaLine}>
           {created.toLocaleDateString()} • {created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
-        <Text style={styles.amountLine}>₦{shipment.fareOffer.toLocaleString()}</Text>
+        <Text style={styles.amountLine}>₦{shipperOffer.toLocaleString()}</Text>
+
+        <View style={styles.priceBreakdown}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Shipper offer</Text>
+            <Text style={styles.infoValue}>₦{shipperOffer.toLocaleString()}</Text>
+          </View>
+          {driverBid != null && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Your bid</Text>
+              <Text style={styles.infoValue}>₦{driverBid.toLocaleString()}</Text>
+            </View>
+          )}
+          {acceptedAmount != null && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Accepted price</Text>
+              <Text style={styles.infoValue}>₦{acceptedAmount.toLocaleString()}</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.statusBadge}>
           <View style={[styles.statusDot, { backgroundColor: color }]} />
           <Text style={[styles.statusText, { color }]}>
             {statusStep?.label ?? shipment.status}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Shipper</Text>
-          <Text style={styles.infoValue}>
-            {shipment.shipper?.businessName ?? 'Unknown'}
-            {shipment.shipper?.phone ? ` • ${shipment.shipper.phone}` : ''}
           </Text>
         </View>
         <View style={styles.infoRow}>
@@ -289,6 +324,48 @@ export default function DriverShipmentDetailsScreen() {
               );
             })}
           </View>
+        </View>
+      </View>
+
+      {/* Shipper profile card */}
+      <View style={styles.shipperCard}>
+        <Text style={styles.shipperTitle}>Shipper profile</Text>
+        <View style={styles.shipperHeaderRow}>
+          <View style={styles.shipperAvatarWrapper}>
+            {shipment.shipper?.profilePhotoUrl ? (
+              <Image
+                source={{ uri: shipment.shipper.profilePhotoUrl }}
+                style={styles.shipperAvatar}
+              />
+            ) : (
+              <View style={styles.shipperAvatarPlaceholder}>
+                <Text style={styles.shipperAvatarInitial}>
+                  {(shipperLabel[0] ?? 'S').toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.shipperTextCol}>
+            <Text style={styles.shipperName} numberOfLines={1}>
+              {shipperLabel}
+            </Text>
+            <Text style={styles.shipperMeta} numberOfLines={1}>
+              {shipment.shipper?.email?.trim() || 'Email not provided'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Business name</Text>
+          <Text style={styles.infoValue}>
+            {shipment.shipper?.businessName?.trim() || shipperLabel}
+          </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Phone</Text>
+          <Text style={styles.infoValue}>
+            {shipment.shipper?.phone?.trim() || 'Not provided'}
+          </Text>
         </View>
       </View>
 
@@ -391,6 +468,7 @@ const styles = StyleSheet.create({
   subRoute: { fontSize: 14, color: '#4B5563' },
   metaLine: { fontSize: 12, color: '#9CA3AF' },
   amountLine: { fontSize: 14, color: '#111827', fontWeight: '700', marginTop: 2 },
+  priceBreakdown: { marginTop: 8, gap: 4 },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -441,6 +519,34 @@ const styles = StyleSheet.create({
   starsRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   star: { fontSize: 18, color: '#D1D5DB' },
   starFilled: { color: '#F59E0B' },
+  shipperCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    backgroundColor: '#ffffff',
+    gap: 10,
+  },
+  shipperTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  shipperHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  shipperAvatarWrapper: { width: 40, height: 40 },
+  shipperAvatar: { width: 40, height: 40, borderRadius: 20 },
+  shipperAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shipperAvatarInitial: { fontSize: 18, fontWeight: '700', color: '#4B5563' },
+  shipperTextCol: { flex: 1, gap: 2 },
+  shipperName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  shipperMeta: { fontSize: 12, color: '#6B7280' },
   section: {
     borderRadius: 16,
     borderWidth: 1,

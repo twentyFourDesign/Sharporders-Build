@@ -30,6 +30,7 @@ type LoadDetail = {
   myBidStatus: 'pending' | 'accepted' | 'rejected' | null;
   myBidId?: string | null;
   myBidOfferAmount?: number | null;
+   shipmentId?: string | null;
 };
 
 const MAP_HEIGHT = 340;
@@ -187,6 +188,8 @@ export default function DriverApplyLoadScreen() {
     (load.myBidId && String(load.myBidId)) ||
     (initialBidId && initialBidId !== 'null' ? initialBidId : '');
   const canEditPending = alreadyApplied && load.myBidStatus === 'pending' && !!bidId;
+  const canViewShipment =
+    alreadyApplied && load.myBidStatus === 'accepted' && !!load.shipmentId;
 
   return (
     <ScrollView
@@ -348,6 +351,14 @@ export default function DriverApplyLoadScreen() {
                 ? '✓ Accepted!'
                 : 'Rejected'}
           </Text>
+          {canViewShipment && (
+            <Pressable
+              style={styles.viewShipmentBtn}
+              onPress={() => router.push(`/(driver)/shipment/${load.shipmentId}`)}
+            >
+              <Text style={styles.viewShipmentBtnText}>View shipment</Text>
+            </Pressable>
+          )}
           <Pressable style={styles.backToBoardBtn} onPress={() => router.back()}>
             <Text style={styles.backToBoardBtnText}>Back to load board</Text>
           </Pressable>
@@ -487,6 +498,19 @@ const styles = StyleSheet.create({
   submitBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
   statusBox: { marginTop: 24, padding: 16, backgroundColor: '#F3F4F6', borderRadius: 12 },
   statusTitle: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  viewShipmentBtn: {
+    marginTop: 12,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+  },
+  viewShipmentBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
   backToBoardBtn: { marginTop: 12, paddingVertical: 8 },
   backToBoardBtnText: { fontSize: 14, color: '#007AFF', fontWeight: '600' },
   errorText: { color: '#b91c1c', marginBottom: 16 },
