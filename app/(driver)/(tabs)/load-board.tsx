@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -22,6 +23,7 @@ type Load = {
   loadDescription: string;
   fareOffer: number;
   loadStatus: string;
+  loadImageUrl?: string | null;
   appliedByMe: boolean;
   myBidStatus: 'pending' | 'accepted' | 'rejected' | null;
 };
@@ -244,6 +246,13 @@ export default function DriverLoadBoardScreen() {
                 item.myBidStatus === 'accepted' && styles.cardAccepted,
                 item.myBidStatus === 'rejected' && styles.cardRejected,
               ]}>
+              {item.loadImageUrl ? (
+                <Image
+                  source={{ uri: item.loadImageUrl }}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                />
+              ) : null}
               <Text style={styles.cardRoute}>
                 {item.pickupAddress} → {item.deliveryAddress}
               </Text>
@@ -318,6 +327,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB',
     padding: 16, backgroundColor: '#F9FAFB', gap: 6,
+  },
+  cardImage: {
+    width: '100%', height: 140, borderRadius: 10, backgroundColor: '#E5E7EB',
   },
   cardAccepted: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
   cardRejected: { opacity: 0.45 },

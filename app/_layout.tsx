@@ -6,10 +6,6 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/lib/auth-context';
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -17,11 +13,10 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
         <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(shipper)" />
           <Stack.Screen name="(driver)" />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <StatusBar style="auto" />
       </AuthProvider>

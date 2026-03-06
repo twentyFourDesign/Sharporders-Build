@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -24,6 +25,7 @@ type Shipment = {
     loadDescription: string;
     recipientName: string | null;
     recipientNumber: string | null;
+    loadImageUrl: string | null;
   };
   driver: {
     firstName: string | null;
@@ -132,6 +134,14 @@ export default function ShipperShipmentsScreen() {
                   <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
                 </View>
 
+                {item.load.loadImageUrl ? (
+                  <Image
+                    source={{ uri: item.load.loadImageUrl }}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
+
                 <Text style={styles.route}>
                   {item.pickupAddress} → {item.deliveryAddress}
                 </Text>
@@ -189,6 +199,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB',
     padding: 16, backgroundColor: '#F9FAFB', gap: 6,
+  },
+  cardImage: {
+    width: '100%', height: 140, borderRadius: 10, backgroundColor: '#E5E7EB',
   },
   cardDelivered: { borderColor: '#1D4ED8', backgroundColor: '#EFF6FF' },
   badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, gap: 5, marginBottom: 4 },

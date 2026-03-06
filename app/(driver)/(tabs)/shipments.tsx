@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -27,6 +28,7 @@ type Shipment = {
     loadDescription: string;
     recipientName: string | null;
     recipientNumber: string | null;
+    loadImageUrl: string | null;
   };
   shipper: {
     businessName: string | null;
@@ -205,6 +207,14 @@ export default function DriverShipmentsScreen() {
                   <Text style={[styles.badgeText, { color }]}>{statusStep?.label ?? item.status}</Text>
                 </View>
 
+                {item.load.loadImageUrl ? (
+                  <Image
+                    source={{ uri: item.load.loadImageUrl }}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
+
                 <Text style={styles.route}>
                   {item.pickupAddress} → {item.deliveryAddress}
                 </Text>
@@ -299,6 +309,7 @@ const styles = StyleSheet.create({
   emptySubText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
   listContent: { paddingTop: 4, paddingBottom: 40, gap: 16 },
   card: { borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, backgroundColor: '#F9FAFB', gap: 8 },
+  cardImage: { width: '100%', height: 140, borderRadius: 10, backgroundColor: '#E5E7EB' },
   cardDelivered: { borderColor: '#1D4ED8', backgroundColor: '#EFF6FF' },
   badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, gap: 5, marginBottom: 2 },
   badgeDot: { width: 6, height: 6, borderRadius: 3 },

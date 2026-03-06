@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,8 +12,9 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch, uploadLoadImage } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
 type Truck = {
@@ -46,6 +48,9 @@ export default function CreateLoadScreen() {
   const [deliveryMapsUrl, setDeliveryMapsUrl] = useState<string | null>(null);
   const pickupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const deliveryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [loadImageUrl, setLoadImageUrl] = useState<string | null>(null);
+  const [localImageUri, setLocalImageUri] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Scrolls so the tapped field sits comfortably above the keyboard
   const scrollToField = (y: number) => {
@@ -107,6 +112,42 @@ export default function CreateLoadScreen() {
     }
   };
 
+  const pickImage = async () => {
+    if (!token) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow access to photos to add a load image.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setLocalImageUri(asset.uri);
+    setImageUploading(true);
+    try {
+      const { url } = await uploadLoadImage(
+        { uri: asset.uri, type: asset.mimeType ?? 'image/jpeg', name: 'load.jpg' },
+        token,
+      );
+      setLoadImageUrl(url);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message ?? 'Could not upload image.');
+      setLocalImageUri(null);
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const removeImage = () => {
+    setLoadImageUrl(null);
+    setLocalImageUri(null);
+  };
+
   const handleSave = async () => {
     if (!token) {
       Alert.alert('Not signed in', 'Please sign in again.');
@@ -150,6 +191,7 @@ export default function CreateLoadScreen() {
           fareOffer: fare,
           pickupMapsUrl: finalPickupUrl,
           deliveryMapsUrl: finalDeliveryUrl,
+          loadImageUrl: loadImageUrl ?? null,
         }),
         token,
       });
@@ -288,6 +330,37 @@ export default function CreateLoadScreen() {
                 placeholderTextColor="#9CA3AF"
                 onFocus={(e) => scrollToField(e.nativeEvent.target as unknown as number)}
               />
+            )}
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Load image (optional)</Text>
+            {(localImageUri || loadImageUrl) ? (
+              <View style={styles.imageBox}>
+                <Image
+                  source={{ uri: loadImageUrl ?? localImageUri ?? undefined }}
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                />
+                {imageUploading && (
+                  <View style={styles.uploadingOverlay}>
+                    <Text style={styles.uploadingText}>Uploading…</Text>
+                  </View>
+                )}
+                <Pressable
+                  style={styles.removeImageBtn}
+                  onPress={removeImage}
+                  disabled={imageUploading}>
+                  <Text style={styles.removeImageBtnText}>Remove photo</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={({ pressed }) => [styles.addImageBtn, pressed && styles.addImageBtnPressed]}
+                onPress={pickImage}
+                disabled={imageUploading}>
+                <Text style={styles.addImageBtnText}>+ Add photo</Text>
+              </Pressable>
             )}
           </View>
 
@@ -462,5 +535,36 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '500',
   },
+  addImageBtn: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderStyle: 'dashed',
+    paddingVertical: 24,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  addImageBtnPressed: { opacity: 0.85 },
+  addImageBtnText: { fontSize: 14, color: '#6B7280', fontWeight: '500' },
+  imageBox: { position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#F3F4F6' },
+  previewImage: { width: '100%', height: 180, borderRadius: 12 },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadingText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
+  removeImageBtn: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  removeImageBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
 });
 

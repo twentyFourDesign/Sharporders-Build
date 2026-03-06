@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -30,9 +31,20 @@ type Bid = {
   };
 };
 
+type LoadSummary = {
+  id: string;
+  pickupAddress: string;
+  deliveryAddress: string;
+  truckType: string;
+  loadDescription: string;
+  fareOffer: number;
+  loadImageUrl: string | null;
+};
+
 export default function LoadBidsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const { token } = useAuth();
+  const [load, setLoad] = useState<LoadSummary | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,8 +60,9 @@ export default function LoadBidsScreen() {
       if (!token || !loadId) { setLoading(false); return; }
       if (!silent) setLoading(true);
       try {
-        const data = await apiFetch<Bid[]>(`/api/loads/${loadId}/bids`, { method: 'GET', token });
-        setBids(data);
+        const data = await apiFetch<{ load: LoadSummary; bids: Bid[] }>(`/api/loads/${loadId}/bids`, { method: 'GET', token });
+        setLoad(data.load);
+        setBids(data.bids);
         setError(null);
       } catch (err: any) {
         setError(err.message ?? 'Failed to load bids');
@@ -165,7 +178,7 @@ export default function LoadBidsScreen() {
     return <View style={styles.center}><ActivityIndicator /></View>;
   }
 
-  if (error && bids.length === 0) {
+  if (error && bids.length === 0 && !load) {
     return <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>;
   }
 
@@ -188,6 +201,25 @@ export default function LoadBidsScreen() {
           <Text style={styles.liveText}>Live</Text>
         </View>
       </View>
+
+      {load && (
+        <View style={styles.loadSummary}>
+          {load.loadImageUrl ? (
+            <Image
+              source={{ uri: load.loadImageUrl }}
+              style={styles.loadSummaryImage}
+              resizeMode="cover"
+            />
+          ) : null}
+          <Text style={styles.loadSummaryRoute}>
+            {load.pickupAddress} → {load.deliveryAddress}
+          </Text>
+          <Text style={styles.loadSummaryMeta}>
+            {load.truckType} • ₦{load.fareOffer.toLocaleString()}
+          </Text>
+          <Text style={styles.loadSummaryDesc} numberOfLines={2}>{load.loadDescription}</Text>
+        </View>
+      )}
 
       <Text style={styles.title}>Driver bids</Text>
       <Text style={styles.subtitle}>
@@ -299,4 +331,9 @@ const styles = StyleSheet.create({
   rejectButtonText: { color: '#F97316', fontSize: 13, fontWeight: '600' },
   acceptButton: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: '#16a34a', minWidth: 140, alignItems: 'center' },
   acceptButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  loadSummary: { borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16, backgroundColor: '#F9FAFB', gap: 6, marginBottom: 16 },
+  loadSummaryImage: { width: '100%', height: 140, borderRadius: 10, backgroundColor: '#E5E7EB' },
+  loadSummaryRoute: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  loadSummaryMeta: { fontSize: 13, color: '#6B7280' },
+  loadSummaryDesc: { fontSize: 13, color: '#4B5563' },
 });
