@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { useAuth } from '@/lib/auth-context';
 
 export default function SignupDriverScreen() {
+  const insets = useSafeAreaInsets();
   const { signUpDriver } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +34,7 @@ export default function SignupDriverScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(32, insets.bottom + 24) }]}>
       <Text style={styles.title}>Create your account</Text>
       <Text style={styles.subtitle}>Please provide accurate details to proceed.</Text>
 
@@ -75,6 +77,14 @@ export default function SignupDriverScreen() {
           </Text>
         </Pressable>
       </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.footerLink, pressed && styles.footerLinkPressed]}
+        onPress={() => router.push('/(auth)/login')}>
+        <Text style={styles.footerLinkText}>
+          Already have an account? <Text style={styles.footerLinkTextBold}>Log in</Text>
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -136,6 +146,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
     letterSpacing: 0.5,
+  },
+  footerLink: {
+    marginTop: 'auto',
+    paddingVertical: 8,
+  },
+  footerLinkPressed: {
+    opacity: 0.7,
+  },
+  footerLinkText: {
+    textAlign: 'center',
+    color: '#6B7280',
+    fontSize: 14,
+  },
+  footerLinkTextBold: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });
 

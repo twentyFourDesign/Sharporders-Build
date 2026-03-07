@@ -13,6 +13,7 @@ export default function DriverLayout() {
       <Stack.Screen name="wallet" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="support" />
+      <Stack.Screen name="support/[id]" />
       <Stack.Screen name="about" />
     </Stack>
   );

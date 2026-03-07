@@ -3,6 +3,7 @@ import {
   Alert,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -67,80 +68,93 @@ export default function DriverProfileScreen() {
   const [imageUploading, setImageUploading] = useState(false);
   const [truckImageUrls, setTruckImageUrls] = useState<string[]>([]);
   const [truckImageUploading, setTruckImageUploading] = useState(false);
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
+  const [suspendedUntil, setSuspendedUntil] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadProfile = useCallback(
+    async (fromPull = false) => {
+      if (!token) return;
+      if (fromPull) setRefreshing(true);
+
+      let isMounted = true;
+      try {
+        if (!fromPull) {
+          const raw = await AsyncStorage.getItem(CACHE_KEY);
+          if (raw && isMounted) {
+            const cached: DriverProfile = JSON.parse(raw);
+            setFirstName(cached.firstName ?? '');
+            setLastName(cached.lastName ?? '');
+            setPhoneNumber(cached.phoneNumber ?? '');
+            setTruckType(cached.truckType ?? '');
+            setLicenseNumber(cached.licenseNumber ?? '');
+            setProfilePhotoUrl(cached.profilePhotoUrl ?? null);
+            setTruckImageUrls(Array.isArray(cached.truckImageUrls) ? cached.truckImageUrls : []);
+          }
+        }
+
+        try {
+          const me = await apiFetch<{
+            firstName: string | null;
+            lastName: string | null;
+            phoneNumber: string | null;
+            truckType: string | null;
+            licenseNumber: string | null;
+            profilePhotoUrl?: string | null;
+            truckImageUrls?: string[];
+            isBlacklisted?: boolean;
+            suspendedUntil?: string | null;
+          }>('/api/me', { method: 'GET', token });
+          if (!isMounted) return;
+          const urls = Array.isArray(me.truckImageUrls) ? me.truckImageUrls : [];
+          const fresh: DriverProfile = {
+            firstName: me.firstName ?? '',
+            lastName: me.lastName ?? '',
+            phoneNumber: me.phoneNumber ?? '',
+            truckType: me.truckType ?? '',
+            licenseNumber: me.licenseNumber ?? '',
+            profilePhotoUrl: me.profilePhotoUrl ?? null,
+            truckImageUrls: urls,
+          };
+          setFirstName(fresh.firstName);
+          setLastName(fresh.lastName);
+          setPhoneNumber(fresh.phoneNumber);
+          setTruckType(fresh.truckType);
+          setLicenseNumber(fresh.licenseNumber);
+          setProfilePhotoUrl(fresh.profilePhotoUrl);
+          setTruckImageUrls(urls);
+          setIsBlacklisted(me.isBlacklisted ?? false);
+          setSuspendedUntil(me.suspendedUntil ?? null);
+          await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
+        } catch { /* ignore */ }
+
+        try {
+          const data = await apiFetch<Truck[]>('/api/trucks', { method: 'GET' });
+          if (!isMounted) return;
+          setTrucks(data);
+        } catch { /* ignore */ }
+
+        try {
+          const loadsData = await apiFetch<{ id: string; status: string }[]>('/api/loads', {
+            method: 'GET',
+            token,
+          });
+          if (!isMounted) return;
+          setLoadStats({
+            total: loadsData.length,
+            active: loadsData.filter((l) => l.status === 'available').length,
+          });
+        } catch { /* ignore */ }
+      } finally {
+        if (fromPull) setRefreshing(false);
+      }
+    },
+    [token],
+  );
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadProfile = async () => {
-      if (!token) return;
-
-      try {
-        const raw = await AsyncStorage.getItem(CACHE_KEY);
-        if (raw && isMounted) {
-          const cached: DriverProfile = JSON.parse(raw);
-          setFirstName(cached.firstName ?? '');
-          setLastName(cached.lastName ?? '');
-          setPhoneNumber(cached.phoneNumber ?? '');
-          setTruckType(cached.truckType ?? '');
-          setLicenseNumber(cached.licenseNumber ?? '');
-          setProfilePhotoUrl(cached.profilePhotoUrl ?? null);
-          setTruckImageUrls(Array.isArray(cached.truckImageUrls) ? cached.truckImageUrls : []);
-        }
-      } catch { /* ignore */ }
-
-      try {
-        const me = await apiFetch<{
-          firstName: string | null;
-          lastName: string | null;
-          phoneNumber: string | null;
-          truckType: string | null;
-          licenseNumber: string | null;
-          profilePhotoUrl?: string | null;
-          truckImageUrls?: string[];
-        }>('/api/me', { method: 'GET', token });
-        if (!isMounted) return;
-        const urls = Array.isArray(me.truckImageUrls) ? me.truckImageUrls : [];
-        const fresh: DriverProfile = {
-          firstName: me.firstName ?? '',
-          lastName: me.lastName ?? '',
-          phoneNumber: me.phoneNumber ?? '',
-          truckType: me.truckType ?? '',
-          licenseNumber: me.licenseNumber ?? '',
-          profilePhotoUrl: me.profilePhotoUrl ?? null,
-          truckImageUrls: urls,
-        };
-        setFirstName(fresh.firstName);
-        setLastName(fresh.lastName);
-        setPhoneNumber(fresh.phoneNumber);
-        setTruckType(fresh.truckType);
-        setLicenseNumber(fresh.licenseNumber);
-        setProfilePhotoUrl(fresh.profilePhotoUrl);
-        setTruckImageUrls(urls);
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
-      } catch { /* ignore */ }
-
-      try {
-        const data = await apiFetch<Truck[]>('/api/trucks', { method: 'GET' });
-        if (!isMounted) return;
-        setTrucks(data);
-      } catch { /* ignore */ }
-
-      try {
-        const loadsData = await apiFetch<{ id: string; status: string }[]>('/api/loads', {
-          method: 'GET',
-          token,
-        });
-        if (!isMounted) return;
-        setLoadStats({
-          total: loadsData.length,
-          active: loadsData.filter((l) => l.status === 'available').length,
-        });
-      } catch { /* ignore */ }
-    };
-
     loadProfile();
-    return () => { isMounted = false; };
-  }, [token]);
+  }, [loadProfile]);
 
   const handlePickImage = async () => {
     if (!token) return;
@@ -387,9 +401,26 @@ export default function DriverProfileScreen() {
     );
   }
 
+  const isSuspended =
+    suspendedUntil != null && new Date(suspendedUntil) > new Date();
+
   // ─── View mode (design from reference) ───
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => loadProfile(true)} />
+      }>
+      {(isBlacklisted || isSuspended) && (
+        <View style={[styles.statusBanner, isBlacklisted && styles.statusBannerBlacklist, isSuspended && styles.statusBannerSuspended]}>
+          <Text style={styles.statusBannerText}>
+            {isBlacklisted
+              ? 'Your account is blacklisted. Please contact support.'
+              : `Your account is suspended until ${new Date(suspendedUntil!).toLocaleString()}. Please contact support.`}
+          </Text>
+        </View>
+      )}
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>←</Text>
@@ -511,6 +542,21 @@ export default function DriverProfileScreen() {
           style={styles.settingRow}
           onPress={() => router.push('/(driver)/support')}>
           <Text style={styles.settingLabel}>🎧 Support</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+        <View style={styles.separator} />
+        <Pressable
+          style={styles.settingRow}
+          onPress={async () => {
+            if (!token) return;
+            try {
+              const ticket = await apiFetch<{ id: string }>('/api/support/chat-with-admin', { method: 'GET', token });
+              router.push(`/(driver)/support/${ticket.id}`);
+            } catch (e: any) {
+              Alert.alert('Error', e?.message ?? 'Could not open chat.');
+            }
+          }}>
+          <Text style={styles.settingLabel}>💬 Chat with admin</Text>
           <Text style={styles.settingChevron}>›</Text>
         </Pressable>
         <View style={styles.separator} />
@@ -740,4 +786,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  statusBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  statusBannerBlacklist: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FECACA' },
+  statusBannerSuspended: { backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A' },
+  statusBannerText: { fontSize: 14, color: '#1F2937', fontWeight: '600', textAlign: 'center' },
 });

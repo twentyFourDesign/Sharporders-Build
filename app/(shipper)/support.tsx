@@ -36,30 +36,11 @@ const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bg: st
 };
 
 const FAQS: { q: string; a: string }[] = [
-  {
-    q: 'Can I accept or decline a load?',
-    a: 'Yes. On the Load Board, tap any load to view its details. You can place a bid or simply skip it.',
-  },
-  {
-    q: 'How to withdraw payment?',
-    a: 'Go to your Payments/Wallet, click Withdraw Funds, choose your method, enter details, and confirm. Funds arrive in your account within a few business days.',
-  },
-  {
-    q: 'How is payment calculated?',
-    a: 'Payment is based on the agreed fare offer for each load. A 10% platform fee is deducted from the total amount before payout.',
-  },
-  {
-    q: 'Can I set my own availability?',
-    a: 'Yes. Use the "Go Live" toggle on the Load Board to show or hide yourself to shippers.',
-  },
-  {
-    q: 'What happens if a shipper cancels a load?',
-    a: "If a load is cancelled before transit begins, you'll be notified and the bid will be voided. No deductions will be made.",
-  },
-  {
-    q: 'How do I update my truck details?',
-    a: 'Navigate to your Profile, find the Truck Details card, and tap "Truck type" to update your registered truck.',
-  },
+  { q: 'How do I create a load?', a: 'Go to Loads, tap "Create load", fill in pickup, delivery, truck type, and offer amount. Submit to publish.' },
+  { q: 'How do I accept a driver bid?', a: 'Open the load, go to Bids. Tap a bid to view details and accept. The driver will be assigned to the shipment.' },
+  { q: 'When is payment taken?', a: 'Payment is processed when you accept a bid. The agreed amount is charged; the driver receives payout after delivery.' },
+  { q: 'Can I cancel a load?', a: 'Yes. From the load or bids screen you can cancel before a driver is assigned. After assignment, contact support.' },
+  { q: 'How do I track my shipment?', a: 'Open the trip in Shipments. You’ll see status updates and can contact the driver from the details screen.' },
 ];
 
 function formatTime(iso: string) {
@@ -72,7 +53,7 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.ticketCard, pressed && { opacity: 0.9 }]}
-      onPress={() => router.push(`/(driver)/support/${ticket.id}`)}>
+      onPress={() => router.push(`/(shipper)/support/${ticket.id}`)}>
       <View style={styles.ticketHeader}>
         <Text style={styles.ticketTitle}>{ticket.title}</Text>
         <Text style={styles.ticketTime}>{formatTime(ticket.createdAt)}</Text>
@@ -89,9 +70,7 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <Pressable
-      style={[styles.faqItem, open && styles.faqItemOpen]}
-      onPress={() => setOpen((v) => !v)}>
+    <Pressable style={[styles.faqItem, open && styles.faqItemOpen]} onPress={() => setOpen((v) => !v)}>
       <View style={styles.faqRow}>
         <Text style={[styles.faqQuestion, open && styles.faqQuestionOpen]}>{q}</Text>
         <Text style={styles.faqChevron}>{open ? '∧' : '∨'}</Text>
@@ -178,7 +157,6 @@ export default function SupportScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        {/* Header */}
         <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
             <Text style={styles.backBtnText}>←</Text>
@@ -189,7 +167,6 @@ export default function SupportScreen() {
           </Pressable>
         </View>
 
-        {/* Open Tickets */}
         <Text style={styles.sectionTitle}>Open Tickets</Text>
         {openTickets.length === 0 ? (
           <View style={styles.emptyBox}>
@@ -203,7 +180,6 @@ export default function SupportScreen() {
           </View>
         )}
 
-        {/* Closed Tickets */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Closed Tickets</Text>
         {closedTickets.length === 0 ? (
           <View style={styles.emptyBox}>
@@ -217,7 +193,6 @@ export default function SupportScreen() {
           </View>
         )}
 
-        {/* FAQs */}
         <Text style={[styles.sectionTitle, { marginTop: 28 }]}>FAQ's</Text>
         <View style={styles.faqList}>
           {FAQS.map((faq) => (
@@ -226,15 +201,8 @@ export default function SupportScreen() {
         </View>
       </ScrollView>
 
-      {/* New Ticket Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Submit a Ticket</Text>
@@ -242,16 +210,14 @@ export default function SupportScreen() {
                 <Text style={styles.modalClose}>✕</Text>
               </Pressable>
             </View>
-
             <Text style={styles.fieldLabel}>Subject</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Unable to withdraw payment"
+              placeholder="e.g. Issue with a load"
               placeholderTextColor="#9CA3AF"
               value={newTitle}
               onChangeText={setNewTitle}
             />
-
             <Text style={styles.fieldLabel}>Description</Text>
             <TextInput
               style={[styles.input, styles.textarea]}
@@ -263,14 +229,11 @@ export default function SupportScreen() {
               numberOfLines={5}
               textAlignVertical="top"
             />
-
             <Pressable
               style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.9 }]}
               onPress={handleSubmit}
               disabled={submitting}>
-              <Text style={styles.submitBtnText}>
-                {submitting ? 'Submitting…' : 'Submit Ticket'}
-              </Text>
+              <Text style={styles.submitBtnText}>{submitting ? 'Submitting…' : 'Submit Ticket'}</Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -283,25 +246,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
   content: { paddingHorizontal: 24, paddingTop: 56, paddingBottom: 48 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backBtn: { paddingVertical: 8, paddingRight: 16 },
   backBtnText: { fontSize: 22, color: '#111827', fontWeight: '500' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827', flex: 1 },
-  newTicketBtn: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
+  newTicketBtn: { backgroundColor: '#007AFF', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
   newTicketBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
-
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 12 },
-
   ticketList: { gap: 12 },
   ticketCard: {
     borderRadius: 12,
@@ -310,77 +261,26 @@ const styles = StyleSheet.create({
     padding: 14,
     backgroundColor: '#ffffff',
   },
-  ticketHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
+  ticketHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   ticketTitle: { fontSize: 14, fontWeight: '600', color: '#007AFF', flex: 1, marginRight: 8 },
   ticketTime: { fontSize: 12, color: '#9CA3AF' },
   ticketDesc: { fontSize: 13, color: '#374151', lineHeight: 19, marginBottom: 10 },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
   statusBadgeText: { fontSize: 12, fontWeight: '600' },
   viewRepliesHint: { fontSize: 11, color: '#9CA3AF', marginTop: 6 },
-
-  emptyBox: {
-    padding: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-  },
+  emptyBox: { padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', alignItems: 'center' },
   emptyText: { fontSize: 13, color: '#9CA3AF' },
-
   faqList: { gap: 10 },
-  faqItem: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: '#ffffff',
-  },
-  faqItemOpen: {
-    borderColor: '#BFDBFE',
-    backgroundColor: '#F0F7FF',
-  },
-  faqRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  faqItem: { borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, paddingVertical: 14, backgroundColor: '#ffffff' },
+  faqItemOpen: { borderColor: '#BFDBFE', backgroundColor: '#F0F7FF' },
+  faqRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   faqQuestion: { fontSize: 14, color: '#111827', flex: 1, marginRight: 8, fontWeight: '500' },
   faqQuestionOpen: { color: '#007AFF', fontWeight: '600' },
   faqChevron: { fontSize: 13, color: '#6B7280' },
   faqAnswer: { fontSize: 13, color: '#6B7280', lineHeight: 19, marginTop: 10 },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalSheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalSheet: { backgroundColor: '#ffffff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
   modalClose: { fontSize: 18, color: '#6B7280', padding: 4 },
   fieldLabel: { fontSize: 13, fontWeight: '500', color: '#374151', marginBottom: 6 },
@@ -396,12 +296,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   textarea: { minHeight: 100 },
-  submitBtn: {
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
+  submitBtn: { backgroundColor: '#007AFF', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   submitBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 15 },
 });

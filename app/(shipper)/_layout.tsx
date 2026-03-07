@@ -7,6 +7,8 @@ export default function ShipperLayout() {
       <Stack.Screen name="shipment/[id]" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="support" />
+      <Stack.Screen name="support/[id]" />
     </Stack>
   );
 }

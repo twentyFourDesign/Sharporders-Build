@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/lib/auth-context';
@@ -23,29 +23,34 @@ export default function ShipperProfileScreen() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [localImageUri, setLocalImageUri] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
+  const [suspendedUntil, setSuspendedUntil] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadProfile = async () => {
+  const loadProfile = useCallback(
+    async (fromPull = false) => {
       if (!token) return;
+      if (fromPull) setRefreshing(true);
 
-      // 1. Show cached data immediately — no blank flash
+      let isMounted = true;
       try {
-        const raw = await AsyncStorage.getItem(CACHE_KEY);
-        if (raw && isMounted) {
-          const cached: ShipperProfile = JSON.parse(raw);
-          setBusinessName(cached.businessName ?? '');
-          setPhone(cached.phone ?? '');
-          setProfilePhotoUrl(cached.profilePhotoUrl ?? null);
+        if (!fromPull) {
+          const raw = await AsyncStorage.getItem(CACHE_KEY);
+          if (raw && isMounted) {
+            const cached: ShipperProfile = JSON.parse(raw);
+            setBusinessName(cached.businessName ?? '');
+            setPhone(cached.phone ?? '');
+            setProfilePhotoUrl(cached.profilePhotoUrl ?? null);
+          }
         }
-      } catch { /* ignore */ }
 
-      // 2. Fetch fresh data in background and update
-      try {
-        const me = await apiFetch<{ businessName: string | null; phone: string | null; profilePhotoUrl?: string | null }>(
-          '/api/me', { method: 'GET', token },
-        );
+        const me = await apiFetch<{
+          businessName: string | null;
+          phone: string | null;
+          profilePhotoUrl?: string | null;
+          isBlacklisted?: boolean;
+          suspendedUntil?: string | null;
+        }>('/api/me', { method: 'GET', token });
         if (!isMounted) return;
         const fresh: ShipperProfile = {
           businessName: me.businessName ?? '',
@@ -55,13 +60,19 @@ export default function ShipperProfileScreen() {
         setBusinessName(fresh.businessName);
         setPhone(fresh.phone);
         setProfilePhotoUrl(fresh.profilePhotoUrl);
+        setIsBlacklisted(me.isBlacklisted ?? false);
+        setSuspendedUntil(me.suspendedUntil ?? null);
         await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
-      } catch { /* ignore */ }
-    };
+      } catch { /* ignore */ } finally {
+        if (fromPull) setRefreshing(false);
+      }
+    },
+    [token],
+  );
 
+  useEffect(() => {
     loadProfile();
-    return () => { isMounted = false; };
-  }, [token]);
+  }, [loadProfile]);
 
   const handlePickImage = async () => {
     if (!token) return;
@@ -127,8 +138,25 @@ export default function ShipperProfileScreen() {
     router.replace('/(auth)/role-select');
   };
 
+  const isSuspended =
+    suspendedUntil != null && new Date(suspendedUntil) > new Date();
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => loadProfile(true)} />
+      }>
+      {(isBlacklisted || isSuspended) && (
+        <View style={[styles.statusBanner, isBlacklisted && styles.statusBannerBlacklist, isSuspended && styles.statusBannerSuspended]}>
+          <Text style={styles.statusBannerText}>
+            {isBlacklisted
+              ? 'Your account is blacklisted. Please contact support.'
+              : `Your account is suspended until ${new Date(suspendedUntil!).toLocaleString()}. Please contact support.`}
+          </Text>
+        </View>
+      )}
       <View style={styles.headerRow}>
         <View style={styles.headerTitleBlock}>
           <Text style={styles.title}>Shipper profile</Text>
@@ -174,6 +202,24 @@ export default function ShipperProfileScreen() {
             style={({ pressed }) => [styles.editButton, pressed && { opacity: 0.85 }]}
             onPress={() => setEditing(true)}>
             <Text style={styles.editButtonText}>Edit details</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.supportButton, pressed && { opacity: 0.85 }]}
+            onPress={() => router.push('/(shipper)/support')}>
+            <Text style={styles.supportButtonText}>🎧 Support</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.supportButton, pressed && { opacity: 0.85 }]}
+            onPress={async () => {
+              if (!token) return;
+              try {
+                const ticket = await apiFetch<{ id: string }>('/api/support/chat-with-admin', { method: 'GET', token });
+                router.push(`/(shipper)/support/${ticket.id}`);
+              } catch (e: any) {
+                Alert.alert('Error', e?.message ?? 'Could not open chat.');
+              }
+            }}>
+            <Text style={styles.supportButtonText}>💬 Chat with admin</Text>
           </Pressable>
         </View>
       )}
@@ -275,6 +321,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#007AFF',
   },
   editButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
+  supportButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#ffffff',
+  },
+  supportButtonText: { fontSize: 13, fontWeight: '600', color: '#111827' },
   avatarButton: {
     alignSelf: 'flex-start',
     borderRadius: 999,
@@ -286,4 +343,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   avatarButtonText: { fontSize: 12, color: '#111827', fontWeight: '500' },
+  statusBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  statusBannerBlacklist: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FECACA' },
+  statusBannerSuspended: { backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A' },
+  statusBannerText: { fontSize: 14, color: '#1F2937', fontWeight: '600', textAlign: 'center' },
 });

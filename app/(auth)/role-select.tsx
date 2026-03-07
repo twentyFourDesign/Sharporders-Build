@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function RoleSelectScreen() {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(32, insets.bottom + 24) }]}>
       <View style={styles.logoWrapper}>
         <Image
           source={require('../../assets/sharp-logo.jpg')}

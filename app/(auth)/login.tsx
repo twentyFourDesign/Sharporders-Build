@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { useAuth } from '@/lib/auth-context';
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +43,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(32, insets.bottom + 24) }]}>
       <View style={styles.header}>
         <Image
           source={require('../../assets/sharp-logo.jpg')}

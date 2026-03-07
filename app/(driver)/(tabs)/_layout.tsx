@@ -1,12 +1,19 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function DriverTabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#111827',
+        tabBarStyle: {
+          paddingBottom: insets.bottom,
+          height: 56 + insets.bottom,
+        },
+        tabBarLabelStyle: { marginBottom: 4 },
       }}>
       <Tabs.Screen
         name="my-loads"
