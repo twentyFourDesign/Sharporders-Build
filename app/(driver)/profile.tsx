@@ -26,6 +26,9 @@ type DriverProfile = {
   licenseNumber: string;
   profilePhotoUrl: string | null;
   truckImageUrls: string[];
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
 };
 
 type Truck = { id: string; name: string };
@@ -68,6 +71,9 @@ export default function DriverProfileScreen() {
   const [imageUploading, setImageUploading] = useState(false);
   const [truckImageUrls, setTruckImageUrls] = useState<string[]>([]);
   const [truckImageUploading, setTruckImageUploading] = useState(false);
+  const [bankName, setBankName] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [isBlacklisted, setIsBlacklisted] = useState(false);
   const [suspendedUntil, setSuspendedUntil] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -90,6 +96,9 @@ export default function DriverProfileScreen() {
             setLicenseNumber(cached.licenseNumber ?? '');
             setProfilePhotoUrl(cached.profilePhotoUrl ?? null);
             setTruckImageUrls(Array.isArray(cached.truckImageUrls) ? cached.truckImageUrls : []);
+            setBankName(cached.bankName ?? '');
+            setBankAccountName(cached.bankAccountName ?? '');
+            setBankAccountNumber(cached.bankAccountNumber ?? '');
           }
         }
 
@@ -102,6 +111,9 @@ export default function DriverProfileScreen() {
             licenseNumber: string | null;
             profilePhotoUrl?: string | null;
             truckImageUrls?: string[];
+            bankName?: string | null;
+            bankAccountName?: string | null;
+            bankAccountNumber?: string | null;
             isBlacklisted?: boolean;
             suspendedUntil?: string | null;
           }>('/api/me', { method: 'GET', token });
@@ -115,6 +127,9 @@ export default function DriverProfileScreen() {
             licenseNumber: me.licenseNumber ?? '',
             profilePhotoUrl: me.profilePhotoUrl ?? null,
             truckImageUrls: urls,
+            bankName: me.bankName ?? '',
+            bankAccountName: me.bankAccountName ?? '',
+            bankAccountNumber: me.bankAccountNumber ?? '',
           };
           setFirstName(fresh.firstName);
           setLastName(fresh.lastName);
@@ -123,6 +138,9 @@ export default function DriverProfileScreen() {
           setLicenseNumber(fresh.licenseNumber);
           setProfilePhotoUrl(fresh.profilePhotoUrl);
           setTruckImageUrls(urls);
+          setBankName(fresh.bankName);
+          setBankAccountName(fresh.bankAccountName);
+          setBankAccountNumber(fresh.bankAccountNumber);
           setIsBlacklisted(me.isBlacklisted ?? false);
           setSuspendedUntil(me.suspendedUntil ?? null);
           await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
@@ -203,6 +221,9 @@ export default function DriverProfileScreen() {
           phoneNumber: phoneNumber.trim() || null,
           truckType: truckType.trim() || null,
           licenseNumber: licenseNumber.trim() || null,
+          bankName: bankName.trim() || null,
+          bankAccountName: bankAccountName.trim() || null,
+          bankAccountNumber: bankAccountNumber.trim() || null,
         }),
         token,
       });
@@ -216,6 +237,9 @@ export default function DriverProfileScreen() {
           licenseNumber: licenseNumber.trim(),
           profilePhotoUrl,
           truckImageUrls,
+          bankName: bankName.trim(),
+          bankAccountName: bankAccountName.trim(),
+          bankAccountNumber: bankAccountNumber.trim(),
         }),
       );
       Alert.alert('Saved', 'Your profile has been updated.');
@@ -356,6 +380,41 @@ export default function DriverProfileScreen() {
           </View>
 
           <View style={styles.field}>
+            <Text style={styles.sectionTitle}>Bank details (for withdrawals)</Text>
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Bank name</Text>
+            <TextInput
+              value={bankName}
+              onChangeText={setBankName}
+              style={styles.input}
+              placeholder="e.g. GTBank, Access Bank"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Account name</Text>
+            <TextInput
+              value={bankAccountName}
+              onChangeText={setBankAccountName}
+              style={styles.input}
+              placeholder="Name on bank account"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Account number</Text>
+            <TextInput
+              value={bankAccountNumber}
+              onChangeText={setBankAccountNumber}
+              keyboardType="numeric"
+              style={styles.input}
+              placeholder="e.g. 0123456789"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+
+          <View style={styles.field}>
             <Text style={styles.label}>Truck type (choose from list)</Text>
             {trucks.length > 0 ? (
               <View style={styles.chipRow}>
@@ -468,6 +527,34 @@ export default function DriverProfileScreen() {
         <Row
           label="Truck Type"
           value={truckType}
+          onEdit={() => setEditing(true)}
+        />
+      </View>
+
+      {/* Bank details (for withdrawals) */}
+      <View style={styles.sheet}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Bank details (for withdrawals)</Text>
+          <Pressable onPress={() => setEditing(true)}>
+            <Text style={styles.editLink}>Edit</Text>
+          </Pressable>
+        </View>
+        <View style={styles.separator} />
+        <Row
+          label="Bank name"
+          value={bankName}
+          onEdit={() => setEditing(true)}
+        />
+        <View style={styles.separator} />
+        <Row
+          label="Account name"
+          value={bankAccountName}
+          onEdit={() => setEditing(true)}
+        />
+        <View style={styles.separator} />
+        <Row
+          label="Account number"
+          value={bankAccountNumber}
           onEdit={() => setEditing(true)}
         />
       </View>
@@ -636,6 +723,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -767,6 +866,7 @@ const styles = StyleSheet.create({
   chipPressed: { opacity: 0.9 },
   chipText: { fontSize: 13, color: '#111827' },
   chipTextSelected: { fontSize: 13, color: '#ffffff', fontWeight: '500' },
+  noTrucksHint: { fontSize: 13, color: '#6B7280', marginTop: 4 },
   actionsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   secondaryButton: {
     flex: 1,

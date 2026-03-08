@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
+  Linking,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -24,6 +27,9 @@ type Transaction = {
   status: 'pending' | 'success' | 'failed';
   reference: string | null;
   createdAt: string;
+  invoiceUrl?: string;
+  bankReferenceNumber?: string;
+  processedAt?: string;
 };
 
 type WalletData = {
@@ -59,6 +65,7 @@ export default function WalletScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   const fetchWallet = useCallback(
     async (silent = false) => {
@@ -101,18 +108,15 @@ export default function WalletScreen() {
     }
     try {
       setWithdrawing(true);
-      const result = await apiFetch<WalletData>('/api/driver/wallet/withdraw', {
+      const result = await apiFetch<{ balance: number; message?: string }>('/api/driver/wallet/withdraw', {
         method: 'POST',
         body: JSON.stringify({ amount }),
         token: token!,
       });
-      setWalletData((prev) =>
-        prev
-          ? { ...prev, balance: result.balance, transactions: result.transactions }
-          : prev,
-      );
+      setWalletData((prev) => (prev ? { ...prev, balance: result.balance } : prev));
       setWithdrawAmount('');
-      Alert.alert('Success', `Withdrawal of ${fmt(amount)} has been initiated.`);
+      await fetchWallet(true);
+      Alert.alert('Success', `Withdrawal of ${fmt(amount)} has been submitted. You will be notified when it is processed.`);
     } catch (e: any) {
       Alert.alert('Withdrawal failed', e?.message ?? 'Please try again.');
     } finally {
@@ -180,10 +184,18 @@ export default function WalletScreen() {
           {walletData && walletData.transactions.length > 0 && (
             <View style={styles.txList}>
               {walletData.transactions.map((tx) => (
-                <TransactionCard key={tx.id} tx={tx} />
+                <TransactionCard key={tx.id} tx={tx} onPress={tx.type === 'debit' ? () => setSelectedTx(tx) : undefined} />
               ))}
             </View>
           )}
+
+          <Modal visible={!!selectedTx} transparent animationType="slide">
+            <Pressable style={styles.modalOverlay} onPress={() => setSelectedTx(null)}>
+              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                {selectedTx && <TransactionDetailSheet tx={selectedTx} onClose={() => setSelectedTx(null)} />}
+              </Pressable>
+            </Pressable>
+          </Modal>
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -257,32 +269,68 @@ export default function WalletScreen() {
       ) : (
         <View style={styles.txList}>
           {filteredTxs.map((tx) => (
-            <TransactionCard key={tx.id} tx={tx} />
+            <TransactionCard key={tx.id} tx={tx} onPress={() => tx.type === 'debit' && setSelectedTx(tx)} />
           ))}
         </View>
       )}
+
+      {/* Withdrawal transaction detail modal */}
+      <Modal visible={!!selectedTx} transparent animationType="slide">
+        <Pressable style={styles.modalOverlay} onPress={() => setSelectedTx(null)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            {selectedTx && <TransactionDetailSheet tx={selectedTx} onClose={() => setSelectedTx(null)} />}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
 
-function TransactionCard({ tx }: { tx: Transaction }) {
+function TransactionCard({ tx, onPress }: { tx: Transaction; onPress?: () => void }) {
   const isCredit = tx.type === 'credit';
-  const isFailed = tx.status === 'failed';
   const isDebit = tx.type === 'debit';
+  const isSuccess = tx.status === 'success';
+  const isFailed = tx.status === 'failed';
+  const isPending = tx.status === 'pending';
 
-  const statusLabel = isFailed
-    ? 'Insufficient Balance · Payment Unsuccessful'
-    : isCredit
-    ? 'Payment Successful'
-    : 'Withdrawal amount';
+  // Status label and styling based on type + status
+  let statusLabel: string;
+  let statusColor: string;
+  let icon: string;
+  let iconBg: string;
+  let iconColor: string;
 
-  const statusColor = isFailed ? '#DC2626' : '#16A34A';
-  const icon = isFailed ? '✗' : '✓';
-  const iconBg = isFailed ? '#FEE2E2' : '#DCFCE7';
-  const iconColor = isFailed ? '#DC2626' : '#16A34A';
+  if (isCredit) {
+    statusLabel = isFailed ? 'Payment Unsuccessful' : 'Payment Successful';
+    statusColor = isFailed ? '#DC2626' : '#16A34A';
+    icon = isFailed ? '✗' : '✓';
+    iconBg = isFailed ? '#FEE2E2' : '#DCFCE7';
+    iconColor = isFailed ? '#DC2626' : '#16A34A';
+  } else {
+    // Debit (withdrawal)
+    if (isPending) {
+      statusLabel = 'Pending approval';
+      statusColor = '#D97706';
+      icon = '⏳';
+      iconBg = '#FEF3C7';
+      iconColor = '#D97706';
+    } else if (isFailed) {
+      statusLabel = 'Withdrawal rejected';
+      statusColor = '#DC2626';
+      icon = '✗';
+      iconBg = '#FEE2E2';
+      iconColor = '#DC2626';
+    } else {
+      statusLabel = 'Withdrawal completed';
+      statusColor = '#16A34A';
+      icon = '✓';
+      iconBg = '#DCFCE7';
+      iconColor = '#16A34A';
+    }
+  }
 
   return (
-    <View style={styles.txCard}>
+    <Pressable style={styles.txCard} onPress={onPress} disabled={!onPress}>
       <View style={[styles.txIconWrap, { backgroundColor: iconBg }]}>
         <Text style={[styles.txIcon, { color: iconColor }]}>{icon}</Text>
       </View>
@@ -290,7 +338,63 @@ function TransactionCard({ tx }: { tx: Transaction }) {
         <Text style={styles.txTime}>{formatTime(tx.createdAt)}</Text>
         <Text style={styles.txAmount}>{fmt(tx.amount)}</Text>
         <Text style={[styles.txStatus, { color: statusColor }]}>{statusLabel}</Text>
+        {(tx.invoiceUrl || (tx.type === 'debit' && onPress)) && (
+          <Pressable onPress={(e) => { e.stopPropagation(); onPress ? onPress() : tx.invoiceUrl && Linking.openURL(tx.invoiceUrl); }}>
+            <Text style={styles.invoiceLink}>View details</Text>
+          </Pressable>
+        )}
       </View>
+    </Pressable>
+  );
+}
+
+function TransactionDetailSheet({ tx, onClose }: { tx: Transaction; onClose: () => void }) {
+  const processedDate = tx.processedAt ? new Date(tx.processedAt) : null;
+  const processedStr = processedDate
+    ? processedDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
+  const pathBeforeQuery = tx.invoiceUrl?.split('?')[0] ?? '';
+  const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(pathBeforeQuery);
+
+  return (
+    <View style={styles.detailSheet}>
+      <View style={styles.detailHeader}>
+        <Text style={styles.detailTitle}>Withdrawal details</Text>
+        <Pressable onPress={onClose} hitSlop={12}>
+          <Text style={styles.detailClose}>✕</Text>
+        </Pressable>
+      </View>
+      <ScrollView style={styles.detailBody} showsVerticalScrollIndicator={false}>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Amount</Text>
+          <Text style={styles.detailValue}>{fmt(tx.amount)}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Date & time</Text>
+          <Text style={styles.detailValue}>{processedStr ?? formatTime(tx.createdAt)}</Text>
+        </View>
+        {tx.bankReferenceNumber && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Transaction reference</Text>
+            <Text style={styles.detailValue}>{tx.bankReferenceNumber}</Text>
+          </View>
+        )}
+        {tx.invoiceUrl && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Invoice / proof of payment</Text>
+            {isImage ? (
+              <Pressable onPress={() => Linking.openURL(tx.invoiceUrl!)} style={styles.invoiceImageWrap}>
+                <Image source={{ uri: tx.invoiceUrl }} style={styles.invoiceImage} resizeMode="cover" />
+                <Text style={styles.invoiceLink}>Tap to view full size</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => Linking.openURL(tx.invoiceUrl!)}>
+                <Text style={styles.invoiceLink}>View invoice</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -399,6 +503,7 @@ const styles = StyleSheet.create({
   txTime: { fontSize: 12, color: '#9CA3AF', marginBottom: 2 },
   txAmount: { fontSize: 17, fontWeight: '700', color: '#111827' },
   txStatus: { fontSize: 12, fontWeight: '500', marginTop: 2 },
+  invoiceLink: { fontSize: 12, color: '#007AFF', fontWeight: '500', marginTop: 4 },
 
   // Empty
   emptyBox: {
@@ -434,4 +539,41 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   withdrawBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 15, letterSpacing: 0.5 },
+
+  // Transaction detail modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  detailSheet: { paddingBottom: 32 },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  detailTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  detailClose: { fontSize: 24, color: '#6B7280', fontWeight: '300' },
+  detailBody: { paddingHorizontal: 24, paddingTop: 20 },
+  detailRow: { marginBottom: 20 },
+  detailLabel: { fontSize: 13, color: '#6B7280', marginBottom: 4 },
+  detailValue: { fontSize: 16, fontWeight: '600', color: '#111827' },
+  invoiceImageWrap: { marginTop: 8 },
+  invoiceImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
 });
