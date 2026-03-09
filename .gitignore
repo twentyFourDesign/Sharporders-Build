@@ -12,8 +12,6 @@ dist
 .turbo
 
 # Environment files
-.env
-.env.*
 !.env.example
 
 # OS / Editor
@@ -65,3 +63,4 @@ app-example
 # generated native folders
 /ios
 /android
+config.bat
