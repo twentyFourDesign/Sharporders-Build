@@ -7,6 +7,11 @@ npx eas build:configure
 npx eas build --platform android --profile preview
 
 
+for ipa
+eas build --platform ios --profile production
+eas submit -p ios
+
+
 
 
 cd /Users/vishumacm2/Desktop/oluvole-app-v2/sharporder-v2

@@ -8,7 +8,7 @@ export default function RoleSelectScreen() {
     <View style={[styles.container, { paddingBottom: Math.max(32, insets.bottom + 24) }]}>
       <View style={styles.logoWrapper}>
         <Image
-          source={require('../../assets/sharp-logo.jpg')}
+          source={require('../../assets/new-logo.jpg')}
           style={styles.logo}
           resizeMode="contain"
         />

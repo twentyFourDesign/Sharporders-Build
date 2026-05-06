@@ -2,9 +2,9 @@
   "expo": {
     "name": "Sharporder",
     "slug": "sharporder-v2",
-    "version": "1.0.2",
+    "version": "1.2.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/new-icon.jpg",
     "scheme": "sharporderv2",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -12,20 +12,23 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.sharporder",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Sharporder uses your location to show nearby drivers, calculate delivery routes, and provide real-time tracking of your shipments. For example, your location helps match you with the closest available driver for faster pickup.",
+        "NSCameraUsageDescription": "Sharporder uses your camera to allow you to take photos of packages or delivery items for shipment verification and tracking.",
+        "NSPhotoLibraryUsageDescription": "Sharporder allows you to upload images from your photo library, such as package photos, to help manage and track deliveries."
       },
-      "buildNumber": "9"
+      "buildNumber": "13"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/new-icon.jpg",
+        "monochromeImage": "./assets/new-icon.jpg"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.sharporder",
-      "versionCode": 2
+      "versionCode": 4
     },
     "web": {
       "output": "static",
